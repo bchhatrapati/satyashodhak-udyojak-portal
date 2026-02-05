@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* 1. DEFINE BRAND VARIABLES (Following Specification 1.0) */
+@theme {
+  /* Financial Blue Palette */
+  --color-brand-navy: #003366;      /* Primary: Trust & Authority */
+  --color-brand-blue: #005BB5;      /* Secondary: Links & Active States */
+  
+  /* Semantic Colors */
+  --color-action-success: #1B5E20;  /* Success: Deposits */
+  --color-action-danger: #B71C1C;   /* Danger: Withdrawals/Alerts */
+  
+  /* Neutral Palette */
+  --color-app-bg: #F4F7FA;          /* Background Blue Tint */
+  --color-surface: #FFFFFF;         /* Card Backgrounds */
+  
+  /* Typography Scale (Specification 2.0) */
+  --text-heading: 1.5rem;           /* 24px */
+  --text-body: 1rem;                /* 16px */
+}
+
+/* 2. BASE STYLES */
+:root {
+  --background: var(--color-app-bg);
+  --foreground: #1A1C1E; /* Dark charcoal for high contrast readability */
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  /* Using Inter/Roboto as requested in PDF */
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 3. UTILITY CLASSES FOR BANKING */
+@layer utilities {
+  /* Financial data must align perfectly (Specification 2.0) */
+  .font-numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Accessible touch targets (Specification 5.0) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* 4. SKELETON SHIMMER (Specification 5.0) */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #ececec 25%, #f5f5f5 50%, #ececec 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
