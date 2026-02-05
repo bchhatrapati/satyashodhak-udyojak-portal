@@ -13,7 +13,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-brand-navy h-screen sticky top-0 text-white p-4 shadow-2xl">
+    <aside className="hidden lg:flex flex-col w-64 bg-brand-navy h-screen sticky top-0 text-white p-4 shadow-2xl">
       <div className="mb-10 px-2">
         <h1 className="text-xl font-bold tracking-tight">Satyashodhak</h1>
         <p className="text-xs text-blue-300 opacity-80 uppercase tracking-widest">Udyojak Portal</p>

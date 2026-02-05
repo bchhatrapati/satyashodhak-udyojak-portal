@@ -19,7 +19,7 @@ export default function Header() {
           {/* Mobile Menu Button - Now Functional */}
           <button 
             onClick={() => setIsOpen(true)}
-            className="md:hidden text-2xl p-2 touch-target text-brand-navy"
+            className="block lg:hidden text-2xl p-2 touch-target text-brand-navy"
             aria-label="Open Menu"
           >
             ☰
@@ -40,7 +40,7 @@ export default function Header() {
 
       {/* MOBILE DRAWER (Specification 5.0 - Mobile First) */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           {/* Dark Backdrop */}
           <div 
             className="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm" 

@@ -8,6 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from backup_system import generate_daily_backup, send_backup_email
 from contextlib import asynccontextmanager
 
+
 # This function is the "Alarm Clock" task
 def scheduled_backup():
     print("⏰ Periodic Backup Started...")
@@ -220,3 +221,28 @@ async def trigger_backup():
         return {"status": "success", "message": "Backup sent to emails"}
     else:
         raise HTTPException(status_code=500, detail="Backup generation failed")
+
+
+
+@app.get("/admin-stats")
+async def get_admin_stats():
+    try:
+        # 1. Get Total Members count
+        total_res = supabase.table("members").select("account_number", count="exact").execute()
+        total_count = total_res.count if total_res.count is not None else 0
+
+        # 2. Get Active Members count (using your 'is_active' boolean)
+        active_res = supabase.table("members").select("account_number", count="exact").eq("is_active", True).execute()
+        active_count = active_res.count if active_res.count is not None else 0
+
+        # 3. Calculate Inactive
+        inactive_count = total_count - active_count
+
+        return {
+            "total_members": total_count,
+            "active_members": active_count,
+            "inactive_members": inactive_count
+        }
+    except Exception as e:
+        print(f"📊 Stats Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch dashboard statistics")
