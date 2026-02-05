@@ -1,21 +1,9 @@
-# --- Frontend (Next.js) ---
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
-frontend/.env.local
-frontend/.env
-
-# --- Backend (Python/FastAPI) ---
-backend/venv/
-backend/env/
-backend/__pycache__/
-backend/*.pyc
-backend/.env
-
-# --- OS & Tools ---
-.DS_Store
+node_modules/
+.next/
+.venv/
+venv/
+__pycache__/
+.env
+.env.local
 .vscode/
-.idea/
 *.xlsx
-*.log
