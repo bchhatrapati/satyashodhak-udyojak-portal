@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 export default function MemberTable() {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const API_BACKEND = process.env.NEXT_PUBLIC_API_URL;
+
 
     useEffect(() => {
-        async function fetchMembers() {
+        async function fetchMembers() { 
             try {
-                const res = await fetch('http://192.168.43.197:8000/members');
+                const res = await fetch(`${API_BACKEND}/members`);
                 if (!res.ok) throw new Error('Backend failed to respond');
                 const data = await res.json();
                 console.log("Data received from Backend:", data); // Check F12 console

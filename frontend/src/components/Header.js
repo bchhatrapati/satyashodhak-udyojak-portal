@@ -8,8 +8,10 @@ export default function Header() {
   // Menu items (Same as Sidebar for consistency)
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: '📊' },
+    { name: 'Register Member', path: '/register', icon: '📝' },
     { name: 'Members', path: '/members', icon: '👥' },
     { name: 'Transactions', path: '/transactions', icon: '💸' },
+    { name: 'Reports', path: '/reports', icon: '📈' },
   ];
 
   return (

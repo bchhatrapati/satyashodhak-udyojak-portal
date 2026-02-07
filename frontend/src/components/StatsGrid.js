@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 export default function StatsGrid() {
   const [stats, setStats] = useState({ total_members: 0, active_members: 0, inactive_members: 0 });
   const [loading, setLoading] = useState(true);
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     async function loadData() {
       try {
-        const response = await fetch('http://192.168.43.197:8000/admin-stats', { cache: 'no-store' });
+        const response = await fetch(`${API_BACKEND}/admin-stats`, { cache: 'no-store' });
         const data = await response.json();
         setStats(data);
       } catch (err) {

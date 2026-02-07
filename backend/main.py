@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form
 from pydantic import BaseModel
 from database import supabase # We import the connection from our other file
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +7,9 @@ import pytz # New library for timezones
 from apscheduler.schedulers.background import BackgroundScheduler
 from backup_system import generate_daily_backup, send_backup_email
 from contextlib import asynccontextmanager
+from fastapi import UploadFile, File
+import re
+import uuid
 
 
 # This function is the "Alarm Clock" task
@@ -52,16 +55,16 @@ class MemberCreate(BaseModel):
     full_name: str
     phone_number: str
     email: str = None
+    dob: str = None  # Added to match DB
     initial_deposit: float
     aadhar_no: str
     pan_no: str
     nominee_name: str
     nominee_relation: str
-    # NEW: Links to the photos in Supabase Storage
     photo_url: str = None
     aadhar_url: str = None
     pan_url: str = None
-
+    monthly_installment_date: int = 10
     
 # --- HELPER FUNCTIONS ---
 def generate_succs_id():
@@ -98,47 +101,56 @@ def generate_succs_id():
 
 # --- ROUTES ---
 @app.post("/register-member")
-async def register(member: MemberCreate):
-    new_account_no = generate_succs_id()
-    ist_now = datetime.now(IST) 
-    
-    member_data = {
-        "account_number": new_account_no,
-        "full_name": member.full_name,
-        "phone_number": member.phone_number,
-        "email": member.email,
-        "balance": member.initial_deposit,
-        "aadhar_no": member.aadhar_no,
-        "pan_no": member.pan_no,
-        "nominee_name": member.nominee_name,
-        "nominee_relation": member.nominee_relation,
-        "photo_url": member.photo_url,   # Save the link
-        "aadhar_url": member.aadhar_url, # Save the link
-        "pan_url": member.pan_url,       # Save the link
-        "is_active": True,
-        "created_at": ist_now.isoformat()
-    }
-    
+async def register_member(member: MemberCreate):
     try:
-        # Insert member
-        supabase.table("members").insert(member_data).execute()
-        
-        # 2. Create the FIRST transaction (The Ledger Rule)
-        transaction_data = {
-            "account_number": new_account_no,
-            "type": "deposit",
-            "amount": member.initial_deposit,
-            "note": "Account Opening Deposit",
-            "admin_id": "ADMIN_01" # Later we will replace with actual logged-in admin
-        }
-        supabase.table("transactions").insert(transaction_data).execute()
-        
-        return {"status": "success", "account_number": new_account_no}
-        
-    except Exception as e:
-        # If phone is duplicate, Supabase throws an error
-        raise HTTPException(status_code=400, detail=str(e))
+        # 1. Ensure ID is a clean string
+        generated_id = f"SAT-{uuid.uuid4().hex[:6].upper()}"
 
+        # 2. Date Validation (Keep it as a string for JSON serialisation)
+        try:
+            # We just validate it's a real date, but keep the string 'YYYY-MM-DD'
+            datetime.strptime(member.dob, "%Y-%m-%d")
+        except:
+            raise HTTPException(status_code=400, detail="Invalid DOB format. Use YYYY-MM-DD")
+
+        # 3. Check duplicates - FIX: Use 'account_number' instead of 'id'
+        existing = supabase.table("members") \
+            .select("account_number") \
+            .or_(f"phone_number.eq.{member.phone_number},aadhar_no.eq.{member.aadhar_no}") \
+            .execute()
+
+        if existing.data:
+            raise HTTPException(status_code=400, detail="Phone or Aadhar already registered")
+
+        # 4. Prepare Dictionary - dob must be a string for JSON
+        member_dict = {
+            "account_number": generated_id,
+            "full_name": member.full_name,
+            "phone_number": member.phone_number,
+            "email": member.email,
+            "dob": member.dob, # Use the validated string here
+            "balance": member.initial_deposit,
+            "aadhar_no": member.aadhar_no,
+            "pan_no": member.pan_no,
+            "photo_url": member.photo_url,
+            "aadhar_url": member.aadhar_url,
+            "pan_url": member.pan_url,
+            "nominee_name": member.nominee_name,
+            "nominee_relation": member.nominee_relation,
+            "monthly_installment_date": member.monthly_installment_date,
+            "is_active": True
+        }
+
+        # 5. Insert
+        result = supabase.table("members").insert(member_dict).execute()
+        return {"status": "success", "account_number": generated_id}
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"CRITICAL ERROR: {str(e)}") # This shows up in your terminal
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+    
 
 @app.get("/members")
 async def get_all_members():
@@ -246,3 +258,44 @@ async def get_admin_stats():
     except Exception as e:
         print(f"📊 Stats Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch dashboard statistics")
+    
+
+# --- NEW STORAGE ROUTE ---
+@app.post("/upload-document")
+async def upload_document(
+    file: UploadFile = File(...), 
+    doc_type: str = Form(...),  # Add this to receive "photo", "aadhar", or "pan"
+    member_name: str = Form(...) # Add this to receive the member name
+):
+    try:
+        # 1. Clean the member name (remove spaces)
+        clean_member_name = re.sub(r'[^a-zA-Z0-9]', '_', member_name).lower()
+        
+        # 2. Build the perfect filename: 20260207_suraj_gaikwad_aadhar.jpg
+        timestamp = datetime.now().strftime('%Y%m%d')
+        file_ext = file.filename.split('.')[-1]
+        perfect_name = f"{timestamp}_{clean_member_name}_{doc_type}.{file_ext}"
+
+        file_content = await file.read()
+        MAX_SIZE = 1024 * 1024  # 512 KB
+        if len(file_content) > MAX_SIZE:
+            raise HTTPException(status_code=400, detail="File is too large. Limit is 512KB.")
+
+        # 4. Upload to Supabase
+        storage_res = supabase.storage.from_("member-documents").upload(
+            path=perfect_name,
+            file=file_content,
+            file_options={"content-type": file.content_type}
+        )
+
+        # 5. Get the Public URL
+        # We assume the 'member-docs' bucket is set to 'Public' in Supabase Dashboard
+        public_url_data = supabase.storage.from_("member-documents").get_public_url(perfect_name)
+        
+        # In the latest supabase-py version, get_public_url returns a string or an object
+        # If it's the URL string, we return it.
+        return {"url": str(public_url_data)}
+
+    except Exception as e:
+        print(f"Upload Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error during upload")
