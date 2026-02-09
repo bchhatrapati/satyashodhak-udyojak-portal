@@ -1,7 +1,7 @@
 import pandas as pd
 import smtplib
 from email.message import EmailMessage
-from database import supabase
+from app/core/config import supabase
 from datetime import datetime
 import pytz
 import os

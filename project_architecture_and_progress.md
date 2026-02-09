@@ -41,7 +41,6 @@ account_number text not null,
   
   -- Constraints
   constraint members_pkey primary key (account_number),
-  constraint members_email_key unique (lower(email)),
   constraint members_phone_number_key unique (phone_number),
   constraint members_aadhar_unique unique (aadhar_no),
   constraint members_pan_unique unique (pan_no),
@@ -53,6 +52,8 @@ account_number text not null,
     check (pan_no ~ '^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
 );
 
+-- Case-insensitive Unique Email Index (Fixes the 42601 error)
+create unique index idx_members_email_lower on public.members (lower(email));
 
 -- Practical additions: Indexes for performance
 create index idx_members_full_name on public.members (full_name);
@@ -130,6 +131,66 @@ create index idx_tx_account on public.transactions(account_number);
 create index idx_tx_date on public.transactions(created_at desc);
 create index idx_tx_receipt on public.transactions(receipt_no);
 ##########################################################################################################
+######FRONTEND
+
+frontend/
+├── src/
+│   ├── app/                 # Routes & Pages
+│   │   ├── layout.js        # Sidebar, Navbar, and Global Theme
+│   │   ├── page.js          # Main Dashboard Overview
+│   │   ├── register/        # Member Registration Folder
+│   │   │   └── page.js      # The 3-Step Form we built
+│   │   ├── members/         # Member Directory
+│   │   │   ├── page.js      # List of all members
+│   │   │   └── [id]/        # Individual Member Profile
+│   │   └── transactions/    # Deposit/Withdrawal pages
+│   ├── components/          # Reusable UI "Bricks"
+│   │   ├── ui/              # Buttons, Inputs, Cards (Global Style)
+│   │   ├── forms/           # Specific form logic
+│   │   └── shared/          # Loaders, Modals, Alerts
+│   ├── hooks/               # Custom Logic
+│   │   └── useTransactions.js # Logic for fetching history
+│   ├── lib/                 # Third-party Config
+│   │   ├── supabase.js      # Supabase Client setup
+│   │   └── utils.js         # Formatting Currency & Dates
+│   ├── styles/              # Global CSS & Tailwind Config
+│   └── constants/           # Brand Colors & Regex patterns
+├── public/                  # Logos, Icons, and Static Assets
+├── tailwind.config.js       # Where we define our Brand Navy & Blue
+└── package.json
+
+#########################################################################################################
+#######BACKEND
+
+backend/
+├── app/
+│   ├── main.py
+│   ├── api/
+│   │   ├── members.py
+│   │   ├── transactions.py
+│   │   └── documents.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   └── logger.py
+│   ├── models/
+│   │   ├── member.py
+│   │   └── transaction.py
+│   ├── services/
+│   │   ├── id_generator.py
+│   │   ├── member_service.py
+│   │   └── transaction_service.py
+│   ├── repositories/
+│   │   ├── members_repo.py
+│   │   └── transactions_repo.py
+│   ├── utils/
+│   │   └── validators.py
+│   └── database/
+│       ├── schema.sql
+│       └── migrations/
+├── .env
+├── requirements.txt
+└── .gitignore
 
 
   

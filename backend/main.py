@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Form
 from pydantic import BaseModel
-from database import supabase # We import the connection from our other file
+from app/core/config import supabase # We import the connection from our other file
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime
 import pytz # New library for timezones
