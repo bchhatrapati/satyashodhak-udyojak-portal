@@ -1,4 +1,4 @@
--- Members Table----------------------------------------------------------------------------
+-- Members Table---------------------------------------------------------------------------
 create table public.members (
 -- Primary Key SUCCS10000 to SUCCS00001(reverse) and then next ID will be SUCCS10001, SUCCS10002....
 account_number text not null,
