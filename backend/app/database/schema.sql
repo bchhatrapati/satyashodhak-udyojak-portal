@@ -132,3 +132,13 @@ create index idx_tx_account on public.transactions(account_number);
 create index idx_tx_date on public.transactions(created_at desc);
 create index idx_tx_receipt on public.transactions(receipt_no);
 ---------------------------------------------------------------------------------------------
+
+-- ID Tracker Table----------------------------------------------------------------------------
+create table public.id_tracker (
+  id integer not null default 1,
+  last_sequence_number integer not null default 10001,
+  is_reverse_phase boolean not null default true,
+  constraint id_tracker_pkey primary key (id),
+  constraint only_one_row check ((id = 1))
+) TABLESPACE pg_default;
+---------------------------------------------------------------------------------------------
