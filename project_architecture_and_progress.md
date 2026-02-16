@@ -187,6 +187,7 @@ backend/
 │   │   └── validators.py
 │   └── database/
 │       ├── schema.sql
+        ├── schema.py
 │       └── migrations/
 ├── .env
 ├── requirements.txt

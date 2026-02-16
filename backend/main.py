@@ -15,7 +15,7 @@ import uuid
 # This function is the "Alarm Clock" task
 def scheduled_backup():
     print("⏰ Periodic Backup Started...")
-    recipients = ["your_email@gmail.com", "co_founder_email@gmail.com"]
+    recipients = ["surajbodhe0@gmail.com", "kfulkari@gmail.com"]
     file_path = generate_daily_backup()
     if file_path:
         send_backup_email(file_path, recipients)
