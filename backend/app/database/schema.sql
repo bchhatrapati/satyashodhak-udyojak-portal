@@ -142,3 +142,23 @@ create table public.id_tracker (
   constraint only_one_row check ((id = 1))
 ) TABLESPACE pg_default;
 ---------------------------------------------------------------------------------------------
+
+
+
+
+
+-- Link member to Supabase Auth
+ALTER TABLE public.members 
+ADD COLUMN user_id uuid 
+REFERENCES auth.users(id) 
+ON DELETE SET NULL;
+
+-- Role based access (admin / member)
+ALTER TABLE public.members 
+ADD COLUMN role text NOT NULL DEFAULT 'member'
+CHECK (role IN ('admin','member'));
+
+-- One login = one member
+CREATE UNIQUE INDEX idx_members_user_id 
+ON public.members (user_id)
+WHERE user_id IS NOT NULL;
