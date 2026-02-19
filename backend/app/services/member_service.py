@@ -64,3 +64,40 @@ class MemberService:
         except SQLAlchemyError:
             db.rollback() # If Member or Transaction fails, undo everything
             raise
+
+    @staticmethod
+    def check_compliance_and_deactivate(db: Session):
+        """
+        Scans all active members. If the current day is past their 
+        installment date and no payment is found, they are deactivated.
+        """
+        today = date.today()
+        
+        # 1. Get only those who are currently active
+        active_members = MemberRepository.get_all_active(db)
+
+        try:
+            for member in active_members:
+                # 2. Check if they have paid this month
+                is_paid = MemberRepository.has_installment_for_month(
+                    db, 
+                    member.account_number, 
+                    today.month, 
+                    today.year
+                )
+
+                # 3. Rule: If NOT paid AND the deadline (day) has passed
+                if not is_paid and today.day > member.monthly_installment_date:
+                    # We pass the update but don't commit yet
+                    MemberRepository.update_status(
+                        db, 
+                        member.account_number, 
+                        is_active=False
+                    )
+
+            # 4. Final step: Save all changes at once (Atomic)
+            db.commit()
+            
+        except SQLAlchemyError:
+            db.rollback()
+            raise

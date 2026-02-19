@@ -89,18 +89,47 @@ class MemberRepository:
     ) -> None:
         """
         Updates a member's active/inactive status.
-
-        Used for:
-        - Manual admin control
-        - Automatic deactivation on rule violations
+        Does NOT commit. (Service layer controls transactions)
         """
-        try:
-            db.execute(
-                update(Member)
-                .where(Member.account_number == account_number)
-                .values(is_active=is_active)
+        db.execute(
+            update(Member)
+            .where(Member.account_number == account_number)
+            .values(is_active=is_active)
+        )
+            
+    @staticmethod
+    def get_all_members(db: Session, skip: int = 0, limit: int = 50):
+        """
+        Returns members in pages.
+        Prevents memory overload.
+        """
+        return db.query(Member).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def get_all_active(db: Session, skip: int = 0, limit: int = 50):
+        return db.query(Member).filter(Member.is_active == True).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def has_installment_for_month(
+        db: Session,
+        account_number: str,
+        month: int,
+        year: int
+    ) -> bool:
+        """
+        Checks whether a member has made their required payment
+        (share capital OR loan installment) for the given month/year.
+        """
+
+        query = db.query(
+            exists().where(
+                Transaction.account_number == account_number,
+                Transaction.transaction_type.in_(
+                    ["share_capital", "installment"]
+                ),
+                extract("month", Transaction.created_at) == month,
+                extract("year", Transaction.created_at) == year
             )
-            db.commit()
-        except SQLAlchemyError:
-            db.rollback()
-            raise
+        )
+
+        return query.scalar()
