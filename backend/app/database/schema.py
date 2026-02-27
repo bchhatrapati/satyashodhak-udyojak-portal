@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from decimal import Decimal
+from sqlalchemy.dialects.postgresql import UUID
 
 Base = declarative_base()
 
