@@ -3,9 +3,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from decimal import Decimal
 from datetime import date
 
-from app.models.members import MemberCreate
-from app.database.schema import Member
-from app.repositories.members_repo import MemberRepository
+from app.schemas.member import MemberCreate
+from app.models.member import Member
+from app.repositories.member_repo import MemberRepository
 from app.services.id_generator import generate_next_account_number
 from app.services.transaction_service import TransactionService
 from app.core.config import supabase_admin # Import our Master Worker

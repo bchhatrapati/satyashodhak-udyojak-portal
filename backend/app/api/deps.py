@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.core.config import supabase
-from app.repositories.members_repo import MemberRepository
-from app.models.members import Member
+from app.repositories.member_repo import MemberRepository
+from app.models.member import Member
 
 
 # ----------------------------------------

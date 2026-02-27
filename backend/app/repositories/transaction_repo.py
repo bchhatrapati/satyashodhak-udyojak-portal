@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
 from sqlalchemy.exc import SQLAlchemyError
-from app.database.schema import Transaction
+from app.models.transaction import Transaction
 from typing import List
 
 

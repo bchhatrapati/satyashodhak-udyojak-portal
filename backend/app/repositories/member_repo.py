@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import SQLAlchemyError
-from app.database.schema import Member
+from app.models.member import Member
 from decimal import Decimal
 from typing import Optional, Dict
 

@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select
 
-from app.database.schema import Transaction, Member
-from app.repositories.members_repo import MemberRepository
+from app.models.transaction import Transaction
+from app.models.member import Member
+from app.repositories.member_repo import MemberRepository
 
 
 class TransactionService:

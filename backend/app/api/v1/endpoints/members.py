@@ -4,14 +4,10 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models.members import Member
-from app.schemas.members import (
-    MemberCreate,
-    MemberResponse,
-    MemberStatusUpdate,
-)
+from app.models.member import Member
+from app.schemas.member import MemberCreate, MemberResponse, MemberStatusUpdate
 from app.services.member_service import MemberService
-from app.repositories.members_repo import MemberRepository
+from app.repositories.member_repo import MemberRepository
 from app.api.deps import get_current_user, require_admin
 
 
