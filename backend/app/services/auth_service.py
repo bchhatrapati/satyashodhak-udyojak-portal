@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import supabase
-from app.repositories.members_repo import MemberRepository
+from app.repositories.member_repo import MemberRepository
 
 
 class AuthService:
