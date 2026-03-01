@@ -69,6 +69,9 @@ class Member(Base):
         onupdate=func.now(),
     )
 
+    # Missing column causing the 500 error:
+    role = Column(Text, nullable=False, default="member")
+
     # Relationships
     transactions = relationship(
         "Transaction",
