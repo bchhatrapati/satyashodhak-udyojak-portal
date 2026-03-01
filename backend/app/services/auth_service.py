@@ -30,7 +30,7 @@ class AuthService:
         # Step 1: Validate Member
         # ------------------------------------
         try:
-            member = MemberRepository.get_by_account(db, account_number)
+            member = MemberRepository.get_by_account_number(db, account_number)
         except SQLAlchemyError:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
