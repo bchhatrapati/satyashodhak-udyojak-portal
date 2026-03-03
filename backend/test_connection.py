@@ -1,9 +1,8 @@
-from app.core.config import supabase_admin
+from app.core.config import supabase
 
-try:
-    # We ask the Admin worker to just fetch the project settings
-    # This proves the URL and Service Key are correct
-    res = supabase_admin.auth.get_user() 
-    print("✅ Connection Successful! The Master Key is working.")
-except Exception as e:
-    print(f"❌ Connection Failed: {e}")
+response = supabase.auth.sign_in_with_password({
+    "email": "satyashodhakudyojak@gmail.com",
+    "password": "25012026@Truth"
+})
+
+print(response)
