@@ -1,0 +1,28 @@
+name: Keep Supabase Awake
+
+on:
+  schedule:
+    # This is "Cron" syntax. It means: "Run at 00:00 every day"
+    - cron: '0 0 * * *'
+  workflow_dispatch: # This adds a "Run" button so you can test it manually
+
+jobs:
+  ping_db:
+    runs-on: ubuntu-latest # The robot uses a fresh Linux machine
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4 # Tells the robot to download your code
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DB Driver
+        run: pip install psycopg2-binary
+
+      - name: Run Ping Script
+        env:
+          # This pulls your secret password from GitHub's vault
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python backend/keep_alive.py
