@@ -206,7 +206,12 @@ def logout(response: Response):
 )
 def refresh_token(request: Request, response: Response):
     """
-    Issues a new access token using refresh token cookie.
+    Refresh authentication tokens using refresh token cookie.
+
+    Security Features:
+    - Uses HTTP-only cookies
+    - Rotates refresh tokens
+    - Clears cookies if refresh fails
     """
 
     refresh_token = request.cookies.get("refresh_token")
@@ -218,9 +223,10 @@ def refresh_token(request: Request, response: Response):
         )
 
     try:
-
-        # Ask Supabase for a new session
-        session = supabase.auth.refresh_session(refresh_token)
+        # Ask Supabase for new session
+        session = supabase.auth.refresh_session({
+            "refresh_token": refresh_token
+        })
 
         if not session or not session.session:
             raise HTTPException(
@@ -231,7 +237,7 @@ def refresh_token(request: Request, response: Response):
         new_access_token = session.session.access_token
         new_refresh_token = session.session.refresh_token
 
-        # Replace cookies (ROTATION)
+        # 🔐 Issue new cookies (TOKEN ROTATION)
         response.set_cookie(
             key="access_token",
             value=new_access_token,
@@ -239,7 +245,7 @@ def refresh_token(request: Request, response: Response):
             secure=True,
             samesite="strict",
             path="/",
-            max_age=60 * 60
+            max_age=60 * 60  # 1 hour
         )
 
         response.set_cookie(
@@ -249,16 +255,18 @@ def refresh_token(request: Request, response: Response):
             secure=True,
             samesite="strict",
             path="/",
-            max_age=60 * 60 * 24 * 7
+            max_age=60 * 60 * 24 * 7  # 7 days
         )
 
         return {"message": "Token refreshed"}
 
     except Exception:
 
+        # 🔥 Security: remove invalid cookies
+        response.delete_cookie("access_token", path="/")
+        response.delete_cookie("refresh_token", path="/")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh failed"
+            detail="Session expired. Please login again."
         )
-
-# ============================================================
