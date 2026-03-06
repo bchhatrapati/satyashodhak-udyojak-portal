@@ -1,7 +1,6 @@
 from typing import Callable
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -11,31 +10,32 @@ from app.models.member import Member
 
 
 # ----------------------------------------
-# OAuth2 Scheme (Where FastAPI gets token)
-# ----------------------------------------
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login"
-)
-
-
-# ----------------------------------------
 # Get Current Authenticated Member
 # ----------------------------------------
 
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
 ) -> Member:
     """
-    Validates Supabase JWT and returns the corresponding Member from DB.
+    Validates Supabase JWT from HTTP-only cookie
+    and returns the corresponding Member from DB.
 
     Security Flow:
-    1. Validate JWT with Supabase
-    2. Extract user UUID
-    3. Find member in local DB
-    4. Ensure member is active
+    1. Extract access_token from cookies
+    2. Validate JWT with Supabase
+    3. Extract user UUID
+    4. Find member in local DB
+    5. Ensure member is active
     """
+
+    token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
 
     try:
         # 1️⃣ Validate token with Supabase
@@ -68,11 +68,9 @@ def get_current_user(
         return member
 
     except HTTPException:
-        # Re-raise known HTTP exceptions
         raise
 
     except Exception:
-        # Unexpected failures should not leak details
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication service error",
@@ -116,5 +114,23 @@ def require_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",
+        )
+    return current_user
+
+
+# ----------------------------------------
+# Convenience Member Guard
+# ----------------------------------------
+
+def require_member(
+    current_user: Member = Depends(get_current_user),
+) -> Member:
+    """
+    Allows both MEMBER and ADMIN.
+    """
+    if current_user.role.upper() not in ["MEMBER", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member access required",
         )
     return current_user
