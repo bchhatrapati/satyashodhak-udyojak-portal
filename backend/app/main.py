@@ -11,10 +11,11 @@ app = FastAPI(
 # 🌐 CORS Configuration (Crucial for your Frontend later)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, change this to your specific domain
+    allow_origins=["http://localhost:3000"
+    "http://192.168.43.197:3000"], # In production, change this to your specific domain
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Set-Cookie", "Authorization"],
 )
 
 # 🚦 Include Department Routers

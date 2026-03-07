@@ -1,12 +1,6 @@
-'use client'; // CRITICAL: This enables hooks in the Next.js App Router
+"use client";
 
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-} from 'react';
+import React, { useRef, useEffect, useMemo } from "react";
 import {
   Menu,
   Globe,
@@ -15,54 +9,39 @@ import {
   LogOut,
   Settings,
   ChevronDown,
-} from 'lucide-react';
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 /**
  * ============================================================
  * SATYASHODHAK UDYOJAK PORTAL - ENTERPRISE HEADER
  * ============================================================
- * * CORE PHILOSOPHY:
- * - Trust through clarity: High-contrast financial blue palette.
- * - Stability through structure: Role-based visual indicators.
- * - Accessibility for all: 44px touch targets & Marathi support.
- * ============================================================
  */
-
-const Header = ({
-  onMenuClick,
-  userRole = 'admin',
-  userName = 'Krushna',
-  onLogout = () => {},
-  notificationCount = 0,
-}) => {
-  /* ------------------------------------------------------------
-     STATE & REFS
-     ------------------------------------------------------------ */
-  const [language, setLanguage] = useState('EN'); 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+const Header = ({ onMenuClick, notificationCount = 0 }) => {
+  const { user, setUser } = useAuth();
+  
+  // FIXED: Consume global context instead of local state
+  const { language, toggleLanguage } = useLanguage();
+  const [dropdownOpen, setDropdownOpen] = React.useState(false);
 
   const dropdownRef = useRef(null);
   const dropdownButtonRef = useRef(null);
 
-  /* ------------------------------------------------------------
-     ROLE-BASED THEMING
-     ------------------------------------------------------------ */
-  const roleBadgeStyle = useMemo(() => {
-    const styles = {
-      admin: 'bg-brand-navy text-text-inverse',
-      cashier: 'bg-brand-blue text-text-inverse',
-      auditor: 'bg-transaction-pending text-text-primary',
-      member: 'bg-app-muted text-text-secondary',
-    };
-    return styles[userRole] || styles.member;
-  }, [userRole]);
+  if (!user) return null;
 
   /* ------------------------------------------------------------
-     HANDLERS
+     ROLE BADGE STYLING
      ------------------------------------------------------------ */
-  const toggleLanguage = useCallback(() => {
-    setLanguage((prev) => (prev === 'EN' ? 'MR' : 'EN'));
-  }, []);
+  const roleBadgeStyle = useMemo(() => {
+    return user.role === "admin"
+      ? "bg-brand-navy text-white"
+      : "bg-app-muted text-text-secondary";
+  }, [user.role]);
+
+  const handleLogout = () => {
+    setUser(null);
+  };
 
   /* ------------------------------------------------------------
      ACCESSIBILITY HANDLERS
@@ -73,20 +52,20 @@ const Header = ({
         setDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
     const handleEscape = (event) => {
-      if (event.key === 'Escape' && dropdownOpen) {
+      if (event.key === "Escape") {
         setDropdownOpen(false);
         dropdownButtonRef.current?.focus();
       }
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [dropdownOpen]);
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
 
   return (
     <header
@@ -94,13 +73,13 @@ const Header = ({
                  flex items-center justify-between px-4 md:px-8 shadow-card"
       role="banner"
     >
-      {/* LEFT: BRAND & NAV */}
+      {/* LEFT SECTION */}
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
           className="md:hidden min-h-touch min-w-touch flex items-center 
                      justify-center text-brand-navy hover:bg-app-background 
-                     rounded-lg transition-colors active:scale-95"
+                     rounded-lg transition active:scale-95"
           aria-label="Open Navigation"
         >
           <Menu size={24} />
@@ -109,19 +88,18 @@ const Header = ({
         <div className="hidden sm:block select-none">
           <h1 className="text-subheadline font-bold tracking-tight">
             <span className="text-brand-navy">
-              {language === 'EN' ? 'Satyashodhak' : 'सत्यशोधक'}
-            </span>{' '}
+              {language === "EN" ? "Satyashodhak" : "सत्यशोधक"}
+            </span>{" "}
             <span className="text-brand-blue">
-              {language === 'EN' ? 'Portal' : 'पोर्टल'}
+              {language === "EN" ? "Portal" : "पोर्टल"}
             </span>
           </h1>
         </div>
       </div>
 
-      {/* RIGHT: ACTIONS */}
+      {/* RIGHT SECTION */}
       <div className="flex items-center gap-2 sm:gap-6">
-        
-        {/* Language Switch */}
+        {/* Language Toggle using global LanguageContext */}
         <button
           onClick={toggleLanguage}
           className="min-h-touch px-3 flex items-center gap-2 
@@ -129,28 +107,32 @@ const Header = ({
                      transition-colors group"
         >
           <Globe size={18} className="group-hover:rotate-12 transition-transform" />
-          <span className="font-bold text-small tabular-nums uppercase">{language}</span>
+          <span className="font-bold text-small uppercase tabular-nums">
+            {language}
+          </span>
         </button>
 
-        {/* Notifications [Fixing Canonical Classes cite: image_4c10e8.png] */}
+        {/* Notifications: Corrected Canonical Classes */}
         <button
           className="relative min-h-touch min-w-touch flex items-center justify-center 
                      text-text-secondary hover:text-brand-blue transition-colors"
-          aria-label="Alerts"
+          aria-label="Notifications"
         >
           <Bell size={20} />
           {notificationCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-transaction-debit 
-                             text-white text-[10px] rounded-full flex items-center 
-                             justify-center px-1 tabular-nums animate-in fade-in zoom-in">
-              {notificationCount > 9 ? '9+' : notificationCount}
+            <span
+              className="absolute -top-1 -right-1 min-w-4.5 h-4.5
+                         bg-transaction-debit text-white text-[10px]
+                         rounded-full flex items-center justify-center px-1 tabular-nums animate-pulse"
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
             </span>
           )}
         </button>
 
         <div className="h-8 w-px bg-app-border hidden sm:block" />
 
-        {/* User Dropdown */}
+        {/* USER DROPDOWN */}
         <div className="relative" ref={dropdownRef}>
           <button
             ref={dropdownButtonRef}
@@ -162,38 +144,46 @@ const Header = ({
           >
             <div className="text-right hidden sm:block">
               <p className="text-small font-semibold text-text-primary leading-none mb-1">
-                {userName}
+                {user.name}
               </p>
-              <span className={`text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold ${roleBadgeStyle}`}>
-                {userRole}
+              <span
+                className={`text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold ${roleBadgeStyle}`}
+              >
+                {user.role}
               </span>
             </div>
 
-            <div className="h-9 w-9 bg-brand-navy text-text-inverse rounded-full flex items-center justify-center border-2 border-app-border">
+            <div
+              className="h-9 w-9 bg-brand-navy text-white rounded-full 
+                         flex items-center justify-center border-2 border-app-border"
+            >
               <User size={18} />
             </div>
 
-            <ChevronDown size={14} className={`text-text-muted transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              size={14}
+              className={`text-text-muted transition-transform duration-200 ${
+                dropdownOpen ? "rotate-180" : ""
+              }`}
+            />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-app-surface border border-app-border rounded-card shadow-card py-2 animate-in fade-in slide-in-from-top-2">
-              <div className="px-4 py-2 border-b border-app-border mb-1 sm:hidden">
-                <p className="text-small font-bold text-text-primary">{userName}</p>
-                <p className="text-[11px] text-text-muted capitalize">{userRole}</p>
-              </div>
-
+            <div
+              className="absolute right-0 mt-2 w-56 bg-app-surface 
+                         border border-app-border rounded-card shadow-card py-2 animate-in fade-in slide-in-from-top-2"
+            >
               <button className="w-full flex items-center gap-3 px-4 py-3 text-small text-text-secondary hover:bg-app-background transition-colors">
                 <Settings size={16} />
-                {language === 'EN' ? 'Account Settings' : 'खाते सेटिंग्ज'}
+                {language === "EN" ? "Account Settings" : "खाते सेटिंग्ज"}
               </button>
 
               <button
-                onClick={onLogout}
+                onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-small text-transaction-debit hover:bg-transaction-debitBg transition-colors font-semibold"
               >
                 <LogOut size={16} />
-                {language === 'EN' ? 'Sign Out' : 'बाहेर पडा'}
+                {language === "EN" ? "Sign Out" : "बाहेर पडा"}
               </button>
             </div>
           )}
