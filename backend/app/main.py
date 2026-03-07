@@ -1,6 +1,12 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import auth, members
+
+load_dotenv()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 app = FastAPI(
     title="Satyashodhak Udyojak Portal",
@@ -11,8 +17,7 @@ app = FastAPI(
 # 🌐 CORS Configuration (Crucial for your Frontend later)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"
-    "http://192.168.43.197:3000"], # In production, change this to your specific domain
+    allow_origins=[FRONTEND_URL], # In production, change this to your specific domain
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Set-Cookie", "Authorization"],
