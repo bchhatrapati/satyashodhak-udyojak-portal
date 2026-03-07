@@ -1,8 +1,10 @@
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+import { Inter } from "next/font/google"; // 🚀 Added for better UI performance
+import Providers from "@/components/Providers";
+import AppShell from "@/components/AppShell";
 
-// 1. Update Metadata to your actual brand
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata = {
   title: "Satyashodhak Udyojak Portal",
   description: "Enterprise-Grade Financial Management System",
@@ -10,23 +12,13 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className="flex min-h-screen bg-app-bg antialiased text-foreground overflow-x-hidden">
-        {/* 2. Persistent Navigation (Desktop Sidebar) */}
-        <Sidebar />
-
-        {/* 3. Main Content Container */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Bar for Profile and Global Actions */}
-          <Header />
-          
-          {/* Scrollable area for the page content */}
-          <main className="p-4 md:p-8 flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="max-w-7xl mx-auto">
-              {children}
-            </div>
-          </main>
-        </div>
+    <html lang="en" suppressHydrationWarning className="h-full">
+      <body className={`${inter.className} min-h-screen bg-app-bg antialiased text-foreground`}>
+        <Providers>
+          <AppShell>
+            {children}
+          </AppShell>
+        </Providers>
       </body>
     </html>
   );

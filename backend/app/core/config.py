@@ -4,8 +4,15 @@ from supabase import create_client, Client
 
 load_dotenv()
 
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
+url: str = os.getenv("SUPABASE_URL")
+anon_key: str = os.getenv("SUPABASE_ANON_KEY")
+service_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-# This is our connection "Worker"
-supabase: Client = create_client(url, key)
+if not url or not anon_key or not service_key:
+    raise ValueError("Missing Supabase configuration in .env")
+
+# Public client (RLS enabled)
+supabase: Client = create_client(url, anon_key)
+
+# Admin client (RLS bypass - backend only)
+supabase_admin: Client = create_client(url, service_key)
