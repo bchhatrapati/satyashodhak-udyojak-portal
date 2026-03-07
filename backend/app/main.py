@@ -7,7 +7,7 @@ from app.api.v1.endpoints import auth, members
 load_dotenv()
 
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-
+FRONTEND_URL_LOCAL = os.getenv("FRONTEND_URL_LOCAL")
 app = FastAPI(
     title="Satyashodhak Udyojak Portal",
     description="Backend API for managing cooperative society members and finances.",
