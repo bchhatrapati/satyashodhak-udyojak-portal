@@ -1,5 +1,5 @@
 # app/api/v1/endpoints/auth.py
-
+import os
 from fastapi import APIRouter, Depends, status, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -15,6 +15,18 @@ router = APIRouter(
 )
 
 
+# 1. Detect environment
+is_prod = os.getenv("ENVIRONMENT") == "production"
+
+# 2. Define Bank-Grade Cookie Policies
+# PRODUCTION: Must be Secure, SameSite=None (for Vercel -> Railway)
+# LOCAL: Secure=False (usually), SameSite=Lax (for Localhost)
+if is_prod:
+    cookie_secure = True
+    cookie_samesite = "none" # 👈 Required for Vercel/Railway cross-domain
+else:
+    cookie_secure = False    # Localhost usually doesn't have SSL/HTTPS
+    cookie_samesite = "lax"  # Standard for local development
 # ============================================================
 # REQUEST SCHEMA
 # ============================================================
@@ -103,8 +115,8 @@ def login(
             key="access_token",
             value=result["access_token"],
             httponly=True,
-            secure=True,          # must be True in production (HTTPS)
-            samesite="strict",
+            secure=cookie_secure,          # must be True in production (HTTPS)
+            samesite=cookie_samesite,
             path="/",
             max_age=60 * 60       # 1 hour
         )
@@ -117,8 +129,8 @@ def login(
             key="refresh_token",
             value=result["refresh_token"],
             httponly=True,
-            secure=True,
-            samesite="strict",
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
             max_age=60 * 60 * 24 * 7   # 7 days
         )
@@ -175,8 +187,8 @@ def logout(response: Response):
         key="access_token",
         path="/",
         httponly=True,
-        secure=True,
-        samesite="strict"
+        secure=cookie_secure,
+        samesite=cookie_samesite
     )
 
     # --------------------------------------------------
@@ -187,8 +199,8 @@ def logout(response: Response):
         key="refresh_token",
         path="/",
         httponly=True,
-        secure=True,
-        samesite="strict"
+        secure=cookie_secure,
+        samesite=cookie_samesite
     )
 
     return {
@@ -242,8 +254,8 @@ def refresh_token(request: Request, response: Response):
             key="access_token",
             value=new_access_token,
             httponly=True,
-            secure=True,
-            samesite="strict",
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
             max_age=60 * 60  # 1 hour
         )
@@ -252,8 +264,8 @@ def refresh_token(request: Request, response: Response):
             key="refresh_token",
             value=new_refresh_token,
             httponly=True,
-            secure=True,
-            samesite="strict",
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
             max_age=60 * 60 * 24 * 7  # 7 days
         )
