@@ -55,17 +55,24 @@ def register_member(
 
 @router.get(
     "/me",
-    response_model=MemberResponse,
+    response_model=MeResponse,
+    status_code=status.HTTP_200_OK
 )
 def get_my_profile(
     current_user: Member = Depends(get_current_user),
 ):
     """
     Returns the currently authenticated member profile.
+    Used by the React AuthContext to restore sessions.
     """
 
-    return current_user
-
+    return {
+        "user": {
+            "account_number": current_user.account_number,
+            "full_name": current_user.full_name,
+            "role": current_user.role,
+        }
+    }
 
 # -------------------------------------------------------------------------
 # 3. List All Members (ADMIN DASHBOARD)
