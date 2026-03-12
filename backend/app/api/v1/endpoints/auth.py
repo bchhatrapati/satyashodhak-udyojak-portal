@@ -282,8 +282,8 @@ def refresh_token(request: Request, response: Response):
     except Exception:
 
         # 🔥 Security: remove invalid cookies
-        response.delete_cookie("access_token", path="/")
-        response.delete_cookie("refresh_token", path="/")
+        response.delete_cookie("access_token", path="/", secure=cookie_secure, samesite=cookie_samesite)
+        response.delete_cookie("refresh_token", path="/", secure=cookie_secure, samesite=cookie_samesite)
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
