@@ -18,47 +18,42 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> Member:
     """
-    Validates Supabase JWT from HTTP-only cookie
-    and returns the corresponding Member from DB.
-
-    Security Flow:
-    1. Extract access_token from cookies
-    2. Validate JWT with Supabase
-    3. Extract user UUID
-    4. Find member in local DB
-    5. Ensure member is active
+    Bank-Grade Security Handshake:
+    Ensures any failure results in a 401 (Logout) rather than a 500 (Crash).
     """
 
     token = request.cookies.get("access_token")
-
+    # 1. No token? Return 401 so the Frontend/Middleware redirects to /login
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
+            detail="Session not found",
         )
 
     try:
-        # 1️⃣ Validate token with Supabase
+        # 2. Validate token with Supabase
         auth_response = supabase.auth.get_user(token)
 
         if not auth_response or not auth_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
+                detail="Session expired",
             )
 
         user_uuid = auth_response.user.id
 
-        # 2️⃣ Fetch Member from DB
+        # 3. Fetch Member from DB
         member = MemberRepository.get_by_user_id(db, user_uuid)
 
+        # 4. If the user exists in Supabase but NOT in your DB, 
+        # it's still a 401 (Unauthorized), not a 404 (Not Found).
         if not member:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Member not found",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User profile missing",
             )
 
-        # 3️⃣ Check account status
+        # 5. Check account status
         if hasattr(member, "is_active") and not member.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -67,15 +62,19 @@ def get_current_user(
 
         return member
 
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        # Re-raise planned Auth errors (401, 403)
+        raise e
 
-    except Exception:
+    except Exception as e:
+        # 🔥 CRITICAL CHANGE:
+        # Log the error for you to see in the terminal,
+        # but return 401 to the browser so the app doesn't freeze.
+        print(f"DEBUG: Unexpected Auth Error: {str(e)}") 
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication service error",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
         )
-
 
 # ----------------------------------------
 # Generic Role-Based Guard

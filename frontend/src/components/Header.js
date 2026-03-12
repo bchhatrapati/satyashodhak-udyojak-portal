@@ -19,15 +19,15 @@ import { useLanguage } from "@/context/LanguageContext";
  * ============================================================
  */
 const Header = ({ onMenuClick, notificationCount = 0 }) => {
-  const { user, setUser } = useAuth();
-  
-  // FIXED: Consume global context instead of local state
+  // 1. All hooks at the TOP level
+  const { user, setUser, logout } = useAuth();
   const { language, toggleLanguage } = useLanguage();
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
 
   const dropdownRef = useRef(null);
   const dropdownButtonRef = useRef(null);
 
+  // 2. Prevent rendering if no user (prevents crashing on null properties)
   if (!user) return null;
 
   /* ------------------------------------------------------------
@@ -39,10 +39,20 @@ const Header = ({ onMenuClick, notificationCount = 0 }) => {
       : "bg-app-muted text-text-secondary";
   }, [user.role]);
 
-  const handleLogout = () => {
-    setUser(null);
+  /**
+   * 🛡️ CLEAN LOGOUT CALL
+   * We use the logout function already defined in AuthContext.js
+   * which handles the Fetch, state clearing, and redirect.
+   */
+  const handleLogoutClick = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Fallback: Force redirect if context logout fails
+      window.location.href = "/login";
+    }
   };
-
   /* ------------------------------------------------------------
      ACCESSIBILITY HANDLERS
      ------------------------------------------------------------ */
@@ -66,6 +76,7 @@ const Header = ({ onMenuClick, notificationCount = 0 }) => {
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
+
 
   return (
     <header
@@ -155,16 +166,15 @@ const Header = ({ onMenuClick, notificationCount = 0 }) => {
 
             <div
               className="h-9 w-9 bg-brand-navy text-white rounded-full 
-                         flex items-center justify-center border-2 border-app-border"
+                         flex items-center justify-center border-2 border-app-border cursor-pointer"
             >
               <User size={18} />
             </div>
 
             <ChevronDown
               size={14}
-              className={`text-text-muted transition-transform duration-200 ${
-                dropdownOpen ? "rotate-180" : ""
-              }`}
+              className={`text-text-muted cursor-pointer transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""
+                }`}
             />
           </button>
 
@@ -173,14 +183,14 @@ const Header = ({ onMenuClick, notificationCount = 0 }) => {
               className="absolute right-0 mt-2 w-56 bg-app-surface 
                          border border-app-border rounded-card shadow-card py-2 animate-in fade-in slide-in-from-top-2"
             >
-              <button className="w-full flex items-center gap-3 px-4 py-3 text-small text-text-secondary hover:bg-app-background transition-colors">
+              <button className="w-full cursor-pointer flex items-center gap-3 px-4 py-3 text-small text-text-secondary hover:bg-app-background transition-colors">
                 <Settings size={16} />
                 {language === "EN" ? "Account Settings" : "खाते सेटिंग्ज"}
               </button>
 
               <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 text-small text-transaction-debit hover:bg-transaction-debitBg transition-colors font-semibold"
+                onClick={handleLogoutClick}
+                className="w-full cursor-pointer flex items-center gap-3 px-4 py-3 text-small text-transaction-debit hover:bg-transaction-debitBg transition-colors font-semibold"
               >
                 <LogOut size={16} />
                 {language === "EN" ? "Sign Out" : "बाहेर पडा"}

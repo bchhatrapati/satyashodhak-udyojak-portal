@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.models.member import Member
 from decimal import Decimal
 from typing import Optional, Dict
+from uuid import UUID
 
 
 class MemberRepository:
@@ -133,3 +134,14 @@ class MemberRepository:
         )
 
         return query.scalar()
+
+    @staticmethod
+    def get_by_user_id(db: Session, user_uuid: str | UUID) -> Member | None:
+        """
+        🏦 SECURE LOOKUP:
+        Fetches a member profile using the Supabase Auth UUID.
+        Returns the Member object if found, otherwise returns None.
+        """
+        # Note: Ensure 'user_id' matches the exact column name in your Member model 
+        # where you store the Supabase UUID. (Sometimes it's called 'auth_id' or 'uuid')
+        return db.query(Member).filter(Member.user_id == (str(user_uuid) if isinstance(user_uuid, UUID) else user_uuid)).first()

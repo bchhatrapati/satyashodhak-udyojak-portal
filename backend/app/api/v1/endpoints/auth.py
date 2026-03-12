@@ -118,7 +118,7 @@ def login(
             secure=cookie_secure,          # must be True in production (HTTPS)
             samesite=cookie_samesite,
             path="/",
-            max_age=60 * 60       # 1 hour
+            max_age=60 * 15       # 15 minutes
         )
 
         # --------------------------------------------------
@@ -146,7 +146,14 @@ def login(
             detail=str(e)
         )
 
-    except Exception:
+    except HTTPException as http_exc:   
+        raise http_exc
+        
+    except Exception as e:
+        # 🔥 ADD THIS PRINT STATEMENT to see the real error in the terminal
+        print(f"🥊 CRITICAL LOGIN ERROR: {str(e)}") 
+        import traceback
+        traceback.print_exc() 
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -225,7 +232,7 @@ def refresh_token(request: Request, response: Response):
     - Rotates refresh tokens
     - Clears cookies if refresh fails
     """
-
+    print(f"refesh token request received")
     refresh_token = request.cookies.get("refresh_token")
 
     if not refresh_token:
@@ -257,7 +264,7 @@ def refresh_token(request: Request, response: Response):
             secure=cookie_secure,
             samesite=cookie_samesite,
             path="/",
-            max_age=60 * 60  # 1 hour
+            max_age=60 * 15  # 15 minutes
         )
 
         response.set_cookie(

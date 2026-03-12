@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(request) {
+export function proxy(request) {
   // 1. Retrieve the secure access token from browser cookies
   const token = request.cookies.get('access_token')?.value;
 

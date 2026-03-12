@@ -9,6 +9,7 @@ from app.schemas.member import MemberCreate, MemberResponse, MemberStatusUpdate
 from app.services.member_service import MemberService
 from app.repositories.member_repo import MemberRepository
 from app.api.deps import get_current_user, require_admin
+from app.api.v1.endpoints.auth import LoginResponse, UserResponse
 
 
 router = APIRouter(
@@ -55,7 +56,7 @@ def register_member(
 
 @router.get(
     "/me",
-    response_model=MeResponse,
+    response_model=LoginResponse,
     status_code=status.HTTP_200_OK
 )
 def get_my_profile(
@@ -66,13 +67,11 @@ def get_my_profile(
     Used by the React AuthContext to restore sessions.
     """
 
-    return {
-        "user": {
-            "account_number": current_user.account_number,
-            "full_name": current_user.full_name,
-            "role": current_user.role,
-        }
-    }
+    return LoginResponse(user=UserResponse(
+        account_number=current_user.account_number,
+        full_name=current_user.full_name,
+        role=current_user.role,
+    ))
 
 # -------------------------------------------------------------------------
 # 3. List All Members (ADMIN DASHBOARD)
