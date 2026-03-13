@@ -4,7 +4,14 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { PlusCircle, ArrowRightLeft, Loader2, ShieldCheck, FileBarChart } from "lucide-react";
+import { 
+  PlusCircle, 
+  ArrowRightLeft, 
+  Loader2, 
+  ShieldCheck, 
+  FileBarChart,
+  LockKeyhole // 👈 Added for Password Reset
+} from "lucide-react";
 
 import StatsGrid from "@/components/StatsGrid";
 import MemberTable from "@/components/MemberTable";
@@ -22,7 +29,6 @@ export default function Dashboard() {
   }, [user, loading, router]);
 
   // 🏛️ BANK GRADE GATEWAY SCREEN
-  // This shows instead of a blank page during the session check
   if (loading || !user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC]">
@@ -42,12 +48,12 @@ export default function Dashboard() {
     );
   }
 
-  const isAdmin = user.role === "admin";
+  const isAdmin = user.role.toLowerCase() === "admin";
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* ================= HEADER ================= */}
+      {/* ================= HEADER & SHARED ACTIONS ================= */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-gray-100 pb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-brand-navy tracking-tight">
@@ -62,8 +68,10 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {isAdmin && (
-          <div className="flex gap-3">
+        {/* Action Buttons: Different based on role, but everyone gets Password Reset */}
+        <div className="flex gap-3 flex-wrap">
+          {/* Admin-Only Registration Button */}
+          {isAdmin && (
             <button 
               onClick={() => router.push('/register')}
               className="group flex items-center gap-2 bg-brand-navy text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-950 transition-all shadow-lg shadow-brand-navy/10 active:scale-95"
@@ -71,35 +79,51 @@ export default function Dashboard() {
               <PlusCircle size={18} className="group-hover:rotate-90 transition-transform duration-300" />
               {language === "EN" ? "Register Member" : "सभासद नोंदणी"}
             </button>
-          </div>
-        )}
+          )}
+
+          {/* Shared Password Reset Button */}
+          <button 
+            onClick={() => router.push('/reset-password')}
+            className="group flex items-center gap-2 bg-white text-brand-navy border border-gray-200 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all shadow-sm active:scale-95"
+          >
+            <LockKeyhole size={18} className="text-gray-400 group-hover:text-brand-blue transition-colors" />
+            {language === "EN" ? "Reset Password" : "पासवर्ड बदला"}
+          </button>
+        </div>
       </header>
 
-      {/* ================= STATS SECTION ================= */}
-      <StatsGrid />
-
-      {/* ================= CONTENT SECTION ================= */}
+      {/* ================= CONTENT SECTION (STRICT SEPARATION) ================= */}
       <div className="grid grid-cols-1 gap-8">
+        
         {isAdmin ? (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-brand-navy flex items-center gap-2">
-                <span className="h-5 w-1 bg-brand-blue rounded-full" />
-                {language === "EN" ? "Recent Registrations" : "अलीकडील नोंदणी"}
-              </h2>
-              <button 
-                onClick={() => router.push('/members')}
-                className="text-brand-blue text-xs font-bold hover:text-brand-navy transition-colors uppercase tracking-widest"
-              >
-                {language === "EN" ? "View Directory" : "सर्व यादी"} →
-              </button>
-            </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <MemberTable limit={5} /> 
-            </div>
-          </section>
+          /* ---------- ADMIN VIEW ---------- */
+          <div className="space-y-8">
+            {/* 🔒 StatsGrid is now safely hidden from regular members */}
+            <StatsGrid />
+            
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-brand-navy flex items-center gap-2">
+                  <span className="h-5 w-1 bg-brand-blue rounded-full" />
+                  {language === "EN" ? "Recent Registrations" : "अलीकडील नोंदणी"}
+                </h2>
+                <button 
+                  onClick={() => router.push('/members')}
+                  className="text-brand-blue text-xs font-bold hover:text-brand-navy transition-colors uppercase tracking-widest"
+                >
+                  {language === "EN" ? "View Directory" : "सर्व यादी"} →
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <MemberTable limit={5} /> 
+              </div>
+            </section>
+          </div>
         ) : (
+          /* ---------- MEMBER VIEW (READ-ONLY) ---------- */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Transactions Card */}
             <div className="bg-white border border-gray-100 p-8 rounded-2xl shadow-sm hover:shadow-md transition-all group">
               <div className="h-14 w-14 bg-blue-50 text-brand-blue rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <ArrowRightLeft size={28} />
@@ -117,6 +141,7 @@ export default function Dashboard() {
               </button>
             </div>
 
+            {/* Passbook Card */}
             <div className="bg-white border border-gray-100 p-8 rounded-2xl shadow-sm hover:shadow-md transition-all group">
               <div className="h-14 w-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <FileBarChart size={28} />
@@ -133,6 +158,7 @@ export default function Dashboard() {
                 {language === "EN" ? "Download Center" : "डाउनलोड सेंटर"}
               </button>
             </div>
+
           </div>
         )}
       </div>

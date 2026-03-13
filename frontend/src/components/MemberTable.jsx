@@ -30,7 +30,7 @@ export default function MemberTable() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             {/* This wrapper allows internal scrolling on mobile */}
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[600px]">
+                <table className="w-full text-left border-collapse min-w-150">
                     <thead className="bg-gray-50 border-b border-gray-100">
                         <tr>
                             <th className="p-4 text-xs font-bold text-gray-400 uppercase">Account</th>
