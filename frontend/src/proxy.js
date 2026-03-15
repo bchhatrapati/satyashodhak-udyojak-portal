@@ -1,35 +1,77 @@
+// src/proxy.js
 import { NextResponse } from 'next/server';
 
+// Extract JWT logic into a safe helper function to keep the proxy clean
+function parseJwt(token) {
+  try {
+    // A valid JWT strictly has 3 parts separated by dots
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decodedJson = atob(payloadBase64);
+    return JSON.parse(decodedJson);
+  } catch (error) {
+    // If decoding fails (malformed token), fail closed by returning null
+    return null;
+  }
+}
+
 export function proxy(request) {
-  // 1. Retrieve the secure access token from browser cookies
+  // 1. Retrieve the token
   const token = request.cookies.get('access_token')?.value;
-
-  // 2. Validate token: must exist and meet a minimum length (robustness check)
-  const hasToken = Boolean(token && token.length > 10);
-
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname.startsWith("/login");
 
-  // 3. Unauthorized Access: If no token, force redirect to Login
-  if (!hasToken && !isLoginPage) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+  // 2. Parse payload and check expiration
+  const payload = token ? parseJwt(token) : null;
+  
+  // JWT exp claim is in seconds, Date.now() is in milliseconds
+  const isTokenValid = payload && payload.exp && (payload.exp * 1000 > Date.now());
+
+  // 3. Unauthorized Access: No token, malformed token, or expired token
+  if (!isTokenValid) {
+    if (!isLoginPage) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      
+      // Optional Enterprise Touch: Append the intended destination so they 
+      // can be redirected back there after a successful login
+      loginUrl.searchParams.set("redirect", pathname);
+      
+      return NextResponse.redirect(loginUrl);
+    }
+    // Allow them to stay on the login page
+    return NextResponse.next(); 
   }
 
-  // 4. Redundant Access: If already logged in, skip Login and go to Dashboard
-  if (hasToken && isLoginPage) {
+  // 4. Redundant Access: Valid, unexpired token trying to access Login
+  if (isTokenValid && isLoginPage) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/";
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // 5. Allow authorized request to proceed
+  // 5. 🛡️ STRICT ROLE-BASED NETWORK ISOLATION 🛡️
+  const adminOnlyRoutes = ['/members', '/register'];
+  const isAccessingAdminRoute = adminOnlyRoutes.some(route => pathname.startsWith(route));
+
+  if (isAccessingAdminRoute) {
+    const userRole = (payload.role || "").toLowerCase();
+
+    // If the token belongs to a regular member, block access
+    if (userRole !== 'admin') {
+      const unauthorizedUrl = request.nextUrl.clone();
+      unauthorizedUrl.pathname = "/"; // Kick them back to their own dashboard
+      return NextResponse.redirect(unauthorizedUrl); 
+    }
+  }
+
+  // 6. Allow authorized request to proceed
   return NextResponse.next();
 }
 
-/** 
- * MATCHER CONFIGURATION:
+/** * MATCHER CONFIGURATION:
  * Protects all routes except internal Next.js files, API routes, and static assets.
  */
 export const config = {

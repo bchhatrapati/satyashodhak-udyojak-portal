@@ -1,7 +1,7 @@
 import "./globals.css";
 import { Inter } from "next/font/google"; // 🚀 Added for better UI performance
 import Providers from "@/components/Providers";
-import AppShell from "@/components/AppShell";
+import AppShell from "@/components/layout/AppShell";
 
 const inter = Inter({ subsets: ["latin"] });
 

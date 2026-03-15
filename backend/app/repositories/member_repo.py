@@ -1,11 +1,11 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, exists, extract # Added exists and extract
 from sqlalchemy.exc import SQLAlchemyError
 from app.models.member import Member
 from decimal import Decimal
 from typing import Optional, Dict
 from uuid import UUID
-
+from app.models.transaction import Transaction # Added Transaction model
 
 class MemberRepository:
     """

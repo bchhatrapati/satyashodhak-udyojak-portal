@@ -78,7 +78,7 @@ def get_my_profile(
 # -------------------------------------------------------------------------
 
 @router.get(
-    "/",
+    "",
     response_model=List[MemberResponse],
 )
 def list_all_members(
@@ -92,7 +92,7 @@ def list_all_members(
     Admin only.
     """
 
-    return MemberRepository.get_all(
+    return MemberRepository.get_all_members(
         db=db,
         skip=skip,
         limit=limit,

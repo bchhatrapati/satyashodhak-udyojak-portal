@@ -8,15 +8,23 @@ export default function MemberTable() {
 
 
     useEffect(() => {
-        async function fetchMembers() { 
+        async function fetchMembers() {
             try {
-                const res = await fetch(`${API_BACKEND}/members`);
-                if (!res.ok) throw new Error('Backend failed to respond');
-                const data = await res.json();
-                console.log("Data received from Backend:", data); // Check F12 console
-                setMembers(data);
+                const response = await fetch(`${API_BACKEND}/api/v1/members/`, {
+                    cache: 'no-store',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch: ${response.status}`);
+                }
+
+                const data = await response.json();
+                setMembers(data); // Or whatever your state setter is named
+
             } catch (err) {
-                console.error("Architect Alert: Connection Refused", err);
+                console.error("MemberTable fetch failed:", err);
+                // Handle your error state here
             } finally {
                 setLoading(false);
             }

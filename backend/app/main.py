@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import auth, members
+from app.api.v1.endpoints import auth, members, admin
 
 load_dotenv()
 
@@ -31,8 +31,9 @@ app.add_middleware(
 )
 
 # 🚦 Include Department Routers
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(members.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(members.router, prefix="/api/v1", tags=["Members"])
+app.include_router(admin.router, prefix="/api/v1", tags=["Admin Dashboard"])
 
 @app.get("/", tags=["Health"])
 def root():

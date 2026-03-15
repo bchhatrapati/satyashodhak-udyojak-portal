@@ -104,3 +104,10 @@ class MemberService:
         except SQLAlchemyError:
             db.rollback()
             raise
+
+    @staticmethod
+    def get_admin_stats(db: Session) -> dict:
+        """
+        Fetches the aggregated dashboard statistics for admins.
+        """
+        return MemberRepository.get_stats(db)        

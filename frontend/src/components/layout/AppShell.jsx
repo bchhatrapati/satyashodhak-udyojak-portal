@@ -2,8 +2,8 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth();
