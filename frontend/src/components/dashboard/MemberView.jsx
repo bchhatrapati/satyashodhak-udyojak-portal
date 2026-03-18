@@ -1,10 +1,11 @@
 // src/components/dashboard/MemberView.jsx
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext"; 
-import { ArrowRightLeft, FileBarChart, UserCircle, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRightLeft, FileBarChart, UserCircle, CheckCircle2, XCircle, Loader2, AlertCircle } from "lucide-react";
 
 const TRANSLATIONS = {
   EN: {
@@ -14,7 +15,7 @@ const TRANSLATIONS = {
     inactive: "Inactive",
     totalShares: "Total Share Capital",
     lastPaid: "Last Paid Share",
-    asOf: "on", // <-- Added translation
+    asOf: "on", 
     transactions: "Transactions",
     transactionsDesc: "View your latest credit/debit history and account balance.",
     statementDetails: "Statement Details",
@@ -24,6 +25,8 @@ const TRANSLATIONS = {
     profile: "My Profile",
     profileDesc: "View your personal information, KYC, and nominee details.",
     viewProfile: "View Profile",
+    errorMsg: "Unable to load account details.",
+    retry: "Retry", // ✅ Added Retry translation
   },
   MR: {
     accountSummary: "खाते सारांश",
@@ -32,7 +35,7 @@ const TRANSLATIONS = {
     inactive: "निष्क्रिय",
     totalShares: "एकूण भाग भांडवल",
     lastPaid: "शेवटचा जमा वाटा",
-    asOf: "रोजी", // <-- Added translation
+    asOf: "रोजी", 
     transactions: "व्यवहार",
     transactionsDesc: "तुमचा अलीकडील जमा/खर्च इतिहास आणि खात्यातील शिल्लक पहा.",
     statementDetails: "स्टेटमेंट तपशील",
@@ -42,19 +45,20 @@ const TRANSLATIONS = {
     profile: "माझी प्रोफाईल",
     profileDesc: "तुमची वैयक्तिक माहिती, केवायसी आणि वारसाचे (Nominee) तपशील पहा.",
     viewProfile: "प्रोफाईल पहा",
+    errorMsg: "खाते तपशील लोड करण्यात अक्षम.", 
+    retry: "पुन्हा प्रयत्न करा", // ✅ Added Retry translation
   },
 };
 
 // UTILITY: Format numbers to Indian Rupee (INR) securely
 const formatINR = (amount) => {
   if (amount === undefined || amount === null) return "₹0";
-  // Strip out any non-numeric characters just in case backend sends dirty data
   const numericAmount = Number(amount.toString().replace(/[^0-9.-]+/g, ""));
   
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0, // Set to 2 if you handle paisa
+    maximumFractionDigits: 0, 
   }).format(numericAmount || 0);
 };
 
@@ -69,7 +73,7 @@ const formatDate = (dateString, lang) => {
       year: 'numeric'
     }).format(date);
   } catch {
-    return dateString; // Fallback to raw string if parsing fails
+    return dateString; 
   }
 };
 
@@ -78,13 +82,95 @@ export default function MemberView() {
   const { user } = useAuth();
   const t = TRANSLATIONS[language] || TRANSLATIONS.EN;
 
-  // STRICT BUSINESS LOGIC: Default to inactive unless explicitly active
-  const isActive = user?.status?.toLowerCase() === "active";
+  const [memberData, setMemberData] = useState(null);
+  const [lastTx, setLastTx] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!user?.account_number) {
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const API_BACKEND = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        
+        // ✅ ENTERPRISE FIX: Resilient Promise.all
+        const [memberRes, txRes] = await Promise.all([
+          fetch(`${API_BACKEND}/api/v1/members/${user.account_number}`, {
+            method: "GET",
+            credentials: "include", 
+            signal: controller.signal
+          }),
+          // Appending a catch here ensures a network failure on transactions 
+          // doesn't crash the entire dashboard load.
+          fetch(`${API_BACKEND}/api/v1/transactions/${user.account_number}/latest`, {
+            method: "GET",
+            credentials: "include", 
+            signal: controller.signal
+          }).catch(() => ({ ok: false })) 
+        ]);
+
+        if (!memberRes.ok) throw new Error("Failed to fetch member data");
+        
+        const memberJson = await memberRes.json();
+        setMemberData(memberJson);
+
+        if (txRes.ok) {
+          const txJson = await txRes.json();
+          setLastTx(txJson);
+        }
+
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error("Network error fetching dashboard data:", err);
+          setError(t.errorMsg);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+
+    return () => controller.abort();
+  }, [user?.account_number, t.errorMsg]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-300">
+        <Loader2 className="h-10 w-10 text-brand-blue animate-spin mb-4" />
+        <p className="text-gray-500 font-medium">Loading account details...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-in fade-in">
+        <AlertCircle size={24} aria-hidden="true" />
+        <p className="font-medium text-sm">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="ml-auto text-xs font-bold underline hover:text-red-800"
+        >
+          {t.retry} {/* ✅ Localized Retry */}
+        </button>
+      </div>
+    );
+  }
+
+  const isActive = memberData?.is_active === true;
   
-  // Cleanly formatted data
-  const totalSharesFormatted = formatINR(user?.total_shares);
-  const lastPaidFormatted = formatINR(user?.last_paid_amount);
-  const lastPaidDateFormatted = formatDate(user?.last_paid_date, language);
+  const totalSharesFormatted = formatINR(memberData?.balance);
+  const lastPaidFormatted = formatINR(lastTx?.amount); 
+  const lastPaidDateFormatted = formatDate(lastTx?.transaction_date || memberData?.joining_date, language);
 
   const dashboardCards = [
     {
@@ -120,8 +206,7 @@ export default function MemberView() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in duration-500 delay-150 fill-mode-both">
-      
+    <div className="space-y-6 animate-in fade-in zoom-in duration-500 fill-mode-both">
       {/* --- ACCOUNT SUMMARY HIGHLIGHT --- */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         
@@ -143,7 +228,6 @@ export default function MemberView() {
           </div>
         </div>
 
-        {/* Added aria-hidden to decorative dividers */}
         <div className="h-px w-full md:w-px md:h-12 bg-gray-100 hidden md:block" aria-hidden="true"></div>
 
         <div>
@@ -156,7 +240,6 @@ export default function MemberView() {
         <div>
           <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">{t.lastPaid}</p>
           <p className="text-lg font-extrabold text-brand-navy font-numeric">{lastPaidFormatted}</p>
-          {/* Handled translation correctly for Marathi vs English syntax */}
           <p className="text-xs text-gray-400 font-medium mt-0.5">
             {language === "EN" ? `${t.asOf} ${lastPaidDateFormatted}` : `${lastPaidDateFormatted} ${t.asOf}`}
           </p>
@@ -195,7 +278,6 @@ export default function MemberView() {
           );
         })}
       </div>
-      
     </div>
   );
 }

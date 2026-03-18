@@ -121,7 +121,7 @@ def get_member_by_account_number(
 
     account_number = account_number.strip()
 
-    member = MemberService.get_member_by_account_number(
+    member = MemberRepository.get_by_account_number(
         db=db,
         account_number=account_number,
     )
