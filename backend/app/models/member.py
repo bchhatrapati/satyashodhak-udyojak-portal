@@ -81,7 +81,7 @@ class Member(Base):
     # Optional link to Supabase Auth
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        #ForeignKey("auth.users.id", ondelete="SET NULL"),
         unique=True,
         nullable=True,
     )

@@ -121,15 +121,3 @@ def require_admin(
 # Convenience Member Guard
 # ----------------------------------------
 
-def require_member(
-    current_user: Member = Depends(get_current_user),
-) -> Member:
-    """
-    Allows both MEMBER and ADMIN.
-    """
-    if current_user.role.upper() not in ["MEMBER", "ADMIN"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Member access required",
-        )
-    return current_user

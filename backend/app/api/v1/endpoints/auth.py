@@ -243,9 +243,7 @@ def refresh_token(request: Request, response: Response):
 
     try:
         # Ask Supabase for new session
-        session = supabase.auth.refresh_session({
-            "refresh_token": refresh_token
-        })
+        session = supabase.auth.refresh_session(refresh_token)
 
         if not session or not session.session:
             raise HTTPException(
@@ -279,8 +277,9 @@ def refresh_token(request: Request, response: Response):
 
         return {"message": "Token refreshed"}
 
-    except Exception:
+    except Exception as e:
 
+        print(f"Token Refresh Failed: {str(e)}")
         # 🔥 Security: remove invalid cookies
         response.delete_cookie("access_token", path="/", secure=cookie_secure, samesite=cookie_samesite)
         response.delete_cookie("refresh_token", path="/", secure=cookie_secure, samesite=cookie_samesite)

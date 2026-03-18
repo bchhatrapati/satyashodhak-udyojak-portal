@@ -1,6 +1,7 @@
+import os
 from typing import List
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -10,6 +11,7 @@ from app.services.member_service import MemberService
 from app.repositories.member_repo import MemberRepository
 from app.api.deps import get_current_user, require_admin
 from app.api.v1.endpoints.auth import LoginResponse, UserResponse
+from supabase import create_client
 
 
 router = APIRouter(
@@ -46,7 +48,6 @@ def register_member(
     return MemberService.register_new_member(
         db=db,
         data=data,
-        created_by=current_user.account_number,
     )
 
 
@@ -178,3 +179,86 @@ def update_member_status(
         )
 
     return member
+
+
+ALLOWED_TYPES = {"image/jpeg", "image/png", "application/pdf"}
+ALLOWED_EXT = {"jpg", "jpeg", "png", "pdf"}
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB
+
+@router.post("/upload-documents")
+def upload_member_documents(
+    aadhar_no: str = Form(...),
+    photo: UploadFile = File(...),
+    aadhar: UploadFile = File(...),
+    pan: UploadFile | None = File(None),
+    current_user: Member = Depends(require_admin) # 🛡️ Maintains your security lock
+):
+    try:
+        # 🚀 THE FIX: Create a thread-local client to completely bypass httpx deadlocks
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        local_supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        base_path = f"{aadhar_no}"
+
+        files_to_upload = {
+            "photo": photo,
+            "aadhar": aadhar,
+            "pan": pan
+        }
+
+        urls = {}
+
+        for doc_type, file in files_to_upload.items():
+            if file is None:
+                continue
+
+            ext = file.filename.split(".")[-1].lower()
+
+            if file.content_type not in ALLOWED_TYPES or ext not in ALLOWED_EXT:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{doc_type} invalid file type"
+                )
+
+            # Synchronous read for the background thread
+            file_bytes = file.file.read()
+
+            if len(file_bytes) > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{doc_type} exceeds 1MB limit"
+                )
+
+            file_path = f"{base_path}/{doc_type}.{ext}"
+
+            # 👇 Using the local thread-safe client instead of the global one
+            upload_res = local_supabase.storage.from_("member-documents").upload(
+                path=file_path,
+                file=file_bytes,
+                file_options={
+                    "content-type": file.content_type,
+                    "upsert": "true"
+                }
+            )
+
+            if isinstance(upload_res, dict) and upload_res.get("error"):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"{doc_type} upload failed"
+                )
+
+            signed_url_res = local_supabase.storage.from_("member-documents").create_signed_url(
+                path=file_path,
+                expires_in=315360000  # 10 years
+            )
+
+            urls[f"{doc_type}_url"] = signed_url_res["signedURL"]
+
+        return urls
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backend Storage Error: {str(e)}"
+        )

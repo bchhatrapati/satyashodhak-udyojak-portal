@@ -55,14 +55,15 @@ class MemberService:
                 nominee_name=data.nominee_name,
                 nominee_relation=data.nominee_relation,
                 monthly_installment_date=data.monthly_installment_date,
-                photo_url=data.photo_url,
-                aadhar_url=data.aadhar_url,
-                pan_url=data.pan_url,
+                photo_url=str(data.photo_url),
+                aadhar_url=str(data.aadhar_url),
+                pan_url=str(data.pan_url),
                 is_active=True,
                 role="member" # Standard isolation role
             )
 
             db.add(new_member)
+            db.flush()
 
             # 4. STEP FOUR: Record Initial Share Capital 
             TransactionService.record_monthly_share(

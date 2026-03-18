@@ -52,22 +52,6 @@ export function proxy(request) {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // 5. 🛡️ STRICT ROLE-BASED NETWORK ISOLATION 🛡️
-  const adminOnlyRoutes = ['/members', '/register'];
-  const isAccessingAdminRoute = adminOnlyRoutes.some(route => pathname.startsWith(route));
-
-  if (isAccessingAdminRoute) {
-    const userRole = (payload.role || "").toLowerCase();
-
-    // If the token belongs to a regular member, block access
-    if (userRole !== 'admin') {
-      const unauthorizedUrl = request.nextUrl.clone();
-      unauthorizedUrl.pathname = "/"; // Kick them back to their own dashboard
-      return NextResponse.redirect(unauthorizedUrl); 
-    }
-  }
-
-  // 6. Allow authorized request to proceed
   return NextResponse.next();
 }
 
