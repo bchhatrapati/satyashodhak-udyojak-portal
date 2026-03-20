@@ -105,7 +105,7 @@ export default function AdminReports() {
       });
       if (searchTerm) params.append("search", searchTerm.trim());
 
-      const response = await fetch(`${API_BACKEND}/api/v1/admin/transactions?${params.toString()}`, {
+      const response = await fetch(`${API_BACKEND}/api/v1/transactions/?${params.toString()}`, {
         method: "GET",
         credentials: "include", 
       });
