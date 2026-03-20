@@ -1,9 +1,10 @@
+// src/components/layout/Sidebar.jsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuth } from "@/context/AuthContext"; // 🔥 UPGRADE 1: Real Authentication
+import { useAuth } from "@/context/AuthContext"; 
 import {
   LayoutDashboard,
   UserPlus,
@@ -12,17 +13,15 @@ import {
   FileBarChart,
   ShieldCheck,
   LogOut,
-  LockKeyhole
+  LockKeyhole,
+  UserCircle // 🛡️ Added for Profile Link
 } from "lucide-react";
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const { language } = useLanguage();
-  
-  // 🔥 UPGRADE 2: Pull real user data and logout function
   const { user, logout } = useAuth(); 
 
-  // Safely determine role and name, fallback to member if loading
   const currentUserRole = user?.role?.toLowerCase() || "member";
   const displayName = user?.full_name || user?.name || "Member";
 
@@ -33,6 +32,8 @@ export default function Sidebar() {
     { name: "Members", mr: "सभासद", path: "/members", icon: Users },
     { name: "Transactions", mr: "व्यवहार", path: "/transactions", icon: History },
     { name: "Reports", mr: "अहवाल", path: "/reports", icon: FileBarChart },
+    // 🛡️ ENTERPRISE FIX 1: Added Profile Route
+    { name: "My Profile", mr: "माझी प्रोफाईल", path: "/profile", icon: UserCircle }, 
   ];
 
   // --- MEMBER MENU ---
@@ -40,13 +41,16 @@ export default function Sidebar() {
     { name: "My Dashboard", mr: "माझा डॅशबोर्ड", path: "/", icon: LayoutDashboard },
     { name: "My Transactions", mr: "माझे व्यवहार", path: "/transactions", icon: History },
     { name: "My Reports", mr: "माझे अहवाल", path: "/reports", icon: FileBarChart },
+    // 🛡️ ENTERPRISE FIX 1: Added Profile Route
+    { name: "My Profile", mr: "माझी प्रोफाईल", path: "/profile", icon: UserCircle },
   ];
 
   const menuItems = currentUserRole === "admin" ? adminMenu : memberMenu;
 
   return (
     <aside
-      className="hidden lg:flex flex-col w-72 bg-brand-navy h-screen sticky top-0 text-white shadow-2xl border-r border-white/10"
+      // 🛡️ ENTERPRISE FIX 3: Added 'overflow-hidden' to prevent iOS flex-stretching
+      className="flex flex-col w-72 bg-brand-navy h-full overflow-hidden text-white shadow-2xl border-r border-white/10"
       role="navigation"
       aria-label="Sidebar Navigation"
     >
@@ -54,7 +58,7 @@ export default function Sidebar() {
       <div className="px-6 py-6 border-b border-white/10">
         <div className="flex items-center gap-2 mb-2">
           <ShieldCheck size={22} className="text-blue-300" aria-hidden="true" />
-          <h1 className="text-headline font-bold tracking-wide">
+          <h1 className="text-xl font-bold tracking-wide">
             Satyashodhak
           </h1>
         </div>
@@ -62,12 +66,7 @@ export default function Sidebar() {
         <p className="text-xs text-blue-300 uppercase tracking-widest opacity-80 font-semibold">
           Udyojak Portal
         </p>
-
-        <div className="mt-4">
-          <span className="text-[10px] bg-white/10 text-white/90 border border-white/20 px-2 py-1 rounded-md font-bold tracking-tighter uppercase">
-            Access: {currentUserRole}
-          </span>
-        </div>
+        {/* 🛡️ ENTERPRISE FIX 2: Removed redundant top role badge to clean up UI */}
       </div>
 
       {/* ================= NAVIGATION ================= */}
@@ -80,6 +79,7 @@ export default function Sidebar() {
             <Link
               key={item.path}
               href={item.path}
+              onClick={onClose} 
               aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
                 isActive
@@ -92,7 +92,7 @@ export default function Sidebar() {
                 className={isActive ? "text-white" : "text-white/40 group-hover:text-white transition-colors"}
                 aria-hidden="true"
               />
-              <span className="text-body font-semibold">
+              <span className="text-sm font-semibold">
                 {language === "EN" ? item.name : item.mr}
               </span>
             </Link>
@@ -100,10 +100,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ================= FOOTER & USER ACTIONS (UPGRADED) ================= */}
+      {/* ================= FOOTER & USER ACTIONS ================= */}
       <div className="p-6 border-t border-white/10 bg-white/5">
-        
-        {/* User Mini-Profile & Action Buttons */}
         <div className="flex flex-col gap-3 mb-4 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 bg-brand-blue rounded-full flex items-center justify-center text-white font-bold shadow-inner" aria-hidden="true">
@@ -118,6 +116,7 @@ export default function Sidebar() {
           <div className="flex gap-2">
             <Link
               href="/reset-password"
+              onClick={onClose}
               className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-2 px-2 rounded-lg text-xs font-semibold transition-colors"
             >
               <LockKeyhole size={14} aria-hidden="true" />
@@ -133,7 +132,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* System Info */}
         <div className="text-[10px] text-blue-200 tabular-nums">
           <p className="font-medium">© {new Date().getFullYear()} Satyashodhak Society</p>
           <p className="mt-1 opacity-70 tracking-widest uppercase">Version 1.0 • Enterprise Grade</p>

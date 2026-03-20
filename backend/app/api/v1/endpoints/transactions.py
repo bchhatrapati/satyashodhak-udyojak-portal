@@ -149,8 +149,55 @@ def get_global_ledger(
 
 
 # ==========================================
-# 3. GET ALL TRANSACTIONS (For Passbook)
+# 3. GET LATEST PAID SHARE (For Dashboard)
+# GET /api/v1/transactions/{account_number}/latest
+# 🛡️ ENTERPRISE FIX: Moved ABOVE the wildcard route!
+# ==========================================
+@router.get("/{account_number}/latest", response_model=TransactionResponse)
+def get_latest_transaction(
+    account_number: str,
+    db: Session = Depends(get_db),
+    current_user: Member = Depends(get_current_user),
+):
+    """
+    Fetches the single most recent CREDIT transaction.
+    Used for the dashboard 'Last Paid Share' card.
+    """
+    account_number = account_number.strip()
+    user_role = getattr(current_user, "role", "") or ""
+
+    if user_role.upper() != "ADMIN" and current_user.account_number != account_number:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view these transactions",
+        )
+
+    # 🛡️ Using your exact logic
+    valid_credit_types = ["deposit", "share_capital"] # Add "interest" here if needed
+
+    latest_tx = (
+        db.query(Transaction)
+        .filter(
+            Transaction.account_number == account_number,
+            Transaction.transaction_type.in_(valid_credit_types) 
+        )
+        .order_by(desc(Transaction.created_at)) 
+        .first()
+    )
+
+    if not latest_tx:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No paid shares found for this account",
+        )
+
+    return latest_tx
+
+
+# ==========================================
+# 4. GET ALL TRANSACTIONS (For Passbook)
 # GET /api/v1/transactions/{account_number}
+# 🛡️ Must be at the BOTTOM so the wildcard doesn't swallow other routes
 # ==========================================
 @router.get("/{account_number}", response_model=List[TransactionResponse])
 def get_all_transactions(
@@ -184,43 +231,3 @@ def get_all_transactions(
     )
 
     return transactions
-
-
-# ==========================================
-# 4. GET LATEST TRANSACTION (For Dashboard)
-# GET /api/v1/transactions/{account_number}/latest
-# ==========================================
-@router.get("/{account_number}/latest", response_model=TransactionResponse)
-def get_latest_transaction(
-    account_number: str,
-    db: Session = Depends(get_db),
-    current_user: Member = Depends(get_current_user),
-):
-    """
-    Fetches the single most recent transaction for a specific account.
-    Used for quick dashboard overview.
-    """
-    account_number = account_number.strip()
-    user_role = getattr(current_user, "role", "") or ""
-
-    # Privacy Fence (Bank-Grade Security)
-    if user_role.upper() != "ADMIN" and current_user.account_number != account_number:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view these transactions",
-        )
-
-    latest_tx = (
-        db.query(Transaction)
-        .filter(Transaction.account_number == account_number)
-        .order_by(desc(Transaction.created_at)) 
-        .first()
-    )
-
-    if not latest_tx:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No transactions found for this account",
-        )
-
-    return latest_tx

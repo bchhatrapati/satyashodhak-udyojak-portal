@@ -1,6 +1,7 @@
 // src/components/layout/AppShell.jsx
 "use client";
 
+import { useState, useEffect } from "react"; // 🛡️ Added useEffect
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePathname } from "next/navigation";
@@ -19,15 +20,34 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const t = TRANSLATIONS[language] || TRANSLATIONS.EN;
 
-  // 1. PUBLIC ROUTES (Removed /reset-password)
-  // Now ONLY the login page bypasses the secure gateway.
+  // 🛡️ State for Mobile Menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // 🛡️ ENTERPRISE FIX 1: Auto-close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // 🛡️ ENTERPRISE FIX 2: Prevent background scrolling when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    
+    // Cleanup function in case component unmounts
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isMobileMenuOpen]);
+
   const publicRoutes = ["/login"];
 
   if (publicRoutes.includes(pathname)) {
     return <main className="min-h-screen">{children}</main>;
   }
 
-  // 2. THE BANK-GRADE GATEWAY
   if (loading || !user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC]">
@@ -47,20 +67,36 @@ export default function AppShell({ children }) {
     );
   }
 
-  // 3. SECURE AUTHENTICATED LAYOUT
   return (
-    <div className="flex min-h-screen w-full overflow-x-hidden bg-app-bg text-foreground">
-      <aside className="h-screen sticky top-0 z-50">
-        <Sidebar />
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-gray-50 text-gray-900">
+      
+      {/* 📱 MOBILE MENU OVERLAY */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-brand-navy/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 🧭 SIDEBAR (Responsive) */}
+      <aside className={`fixed md:sticky top-0 left-0 h-screen z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        {/* Pass a prop so the Sidebar can close itself if a specific close button is clicked */}
+        <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
       </aside>
+
+      {/* 📄 MAIN CONTENT AREA */}
       <div className="flex flex-1 flex-col min-w-0 h-screen relative">
-        <Header />
+        {/* 👈 Pass the open function to the Header */}
+        <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
+        
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
         </main>
       </div>
+      
     </div>
   );
 }
