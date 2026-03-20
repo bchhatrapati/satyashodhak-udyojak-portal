@@ -26,7 +26,7 @@ const TRANSLATIONS = {
     profileDesc: "View your personal information, KYC, and nominee details.",
     viewProfile: "View Profile",
     errorMsg: "Unable to load account details.",
-    retry: "Retry", // ✅ Added Retry translation
+    retry: "Retry", 
   },
   MR: {
     accountSummary: "खाते सारांश",
@@ -46,7 +46,7 @@ const TRANSLATIONS = {
     profileDesc: "तुमची वैयक्तिक माहिती, केवायसी आणि वारसाचे (Nominee) तपशील पहा.",
     viewProfile: "प्रोफाईल पहा",
     errorMsg: "खाते तपशील लोड करण्यात अक्षम.", 
-    retry: "पुन्हा प्रयत्न करा", // ✅ Added Retry translation
+    retry: "पुन्हा प्रयत्न करा", 
   },
 };
 
@@ -85,10 +85,12 @@ export default function MemberView() {
   const [memberData, setMemberData] = useState(null);
   const [lastTx, setLastTx] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    // 🛡️ ENTERPRISE FIX: If data is corrupted, fail fast and show error.
     if (!user?.account_number) {
+      setHasError(true);
       setLoading(false);
       return;
     }
@@ -98,18 +100,15 @@ export default function MemberView() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
+        setHasError(false);
         const API_BACKEND = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         
-        // ✅ ENTERPRISE FIX: Resilient Promise.all
         const [memberRes, txRes] = await Promise.all([
           fetch(`${API_BACKEND}/api/v1/members/${user.account_number}`, {
             method: "GET",
             credentials: "include", 
             signal: controller.signal
           }),
-          // Appending a catch here ensures a network failure on transactions 
-          // doesn't crash the entire dashboard load.
           fetch(`${API_BACKEND}/api/v1/transactions/${user.account_number}/latest`, {
             method: "GET",
             credentials: "include", 
@@ -130,7 +129,7 @@ export default function MemberView() {
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error("Network error fetching dashboard data:", err);
-          setError(t.errorMsg);
+          setHasError(true);
         }
       } finally {
         setLoading(false);
@@ -140,37 +139,45 @@ export default function MemberView() {
     fetchDashboardData();
 
     return () => controller.abort();
-  }, [user?.account_number, t.errorMsg]);
+  }, [user?.account_number]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-300">
-        <Loader2 className="h-10 w-10 text-brand-blue animate-spin mb-4" />
-        <p className="text-gray-500 font-medium">Loading account details...</p>
-      </div>
-    );
-  }
+  // ========================================================
+  // RENDER PIPELINE (Strict Enforcement)
+  // ========================================================
 
-  if (error) {
+  // 1. ERROR STATE (Checked first to prevent rendering broken UI)
+  if (hasError) {
     return (
       <div className="w-full p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-in fade-in">
         <AlertCircle size={24} aria-hidden="true" />
-        <p className="font-medium text-sm">{error}</p>
+        <p className="font-medium text-sm">{t.errorMsg}</p>
         <button 
           onClick={() => window.location.reload()} 
           className="ml-auto text-xs font-bold underline hover:text-red-800"
         >
-          {t.retry} {/* ✅ Localized Retry */}
+          {t.retry}
         </button>
       </div>
     );
   }
 
-  const isActive = memberData?.is_active === true;
-  
-  const totalSharesFormatted = formatINR(memberData?.balance);
+  // 2. LOADING STATE (Hard Gate: Blocks render if loading OR data is missing)
+  if (loading || !memberData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-300">
+        <Loader2 className="h-10 w-10 text-brand-blue animate-spin mb-4" aria-hidden="true" />
+        <p className="text-gray-500 font-medium">
+          {language === "EN" ? "Loading your dashboard..." : "तुमचा डॅशबोर्ड लोड होत आहे..."}
+        </p>
+      </div>
+    );
+  }
+
+  // 3. SAFE TO RENDER DASHBOARD
+  const isActive = memberData.is_active === true;
+  const totalSharesFormatted = formatINR(memberData.balance);
   const lastPaidFormatted = formatINR(lastTx?.amount); 
-  const lastPaidDateFormatted = formatDate(lastTx?.transaction_date || memberData?.joining_date, language);
+  const lastPaidDateFormatted = formatDate(lastTx?.created_at || memberData.joining_date, language);
 
   const dashboardCards = [
     {

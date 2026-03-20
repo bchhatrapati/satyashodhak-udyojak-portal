@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 const AuthContext = createContext();
 
@@ -9,14 +9,38 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const API_BACKEND = process.env.NEXT_PUBLIC_API_URL;
   
-  // 🛡️ Prevents double-firing in React 18 Strict Mode
+  // 🛡️ Refs
   const hasChecked = useRef(false);
+  const lastActivity = useRef(Date.now()); 
 
-  // 🔍 1. SESSION RESTORE (The Handshake)
+  // --------------------------------------------------------
+  // 1. LOGOUT ACTION
+  // --------------------------------------------------------
+  const logout = useCallback(async () => {
+    try {
+      if (API_BACKEND) {
+        await fetch(`${API_BACKEND}/api/v1/auth/logout`, {
+          method: "POST",
+          credentials: "include",
+        });
+      }
+    } catch (err) {
+      console.error("Logout request failed:", err);
+    } finally {
+      setUser(null);
+      localStorage.setItem("logout_event", Date.now().toString());
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+  }, [API_BACKEND]);
+
+  // --------------------------------------------------------
+  // 2. SESSION RESTORE (The Handshake)
+  // --------------------------------------------------------
   const checkUserStatus = useCallback(async () => {
-    // Fail-fast if the environment is misconfigured
     if (!API_BACKEND) {
-      console.error("Critical Error: NEXT_PUBLIC_API_URL is not defined in environment variables.");
+      console.error("Critical Error: NEXT_PUBLIC_API_URL is missing.");
       setLoading(false);
       return;
     }
@@ -24,12 +48,11 @@ export function AuthProvider({ children }) {
     try {
       const response = await fetch(`${API_BACKEND}/api/v1/members/me`, {
         method: "GET",
-        credentials: "include", // 👈 Mandatory for HttpOnly cookies
+        credentials: "include", 
       });
 
       if (response.ok) {
         const data = await response.json();
-        // data.user should match your FastAPI MeResponse schema
         setUser(data.user);
       } else {
         setUser(null);
@@ -42,8 +65,30 @@ export function AuthProvider({ children }) {
     }
   }, [API_BACKEND]);
 
+  // --------------------------------------------------------
+  // 3. SILENT REFRESH FUNCTION
+  // --------------------------------------------------------
+  const silentRefresh = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BACKEND}/api/v1/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
 
-  // 🚀 2. INITIAL MOUNT CHECK
+      if (!response.ok) throw new Error("Session expired");
+      console.log("🔒 Session silently refreshed!");
+      
+    } catch (error) {
+      console.error("Refresh failed, logging out:", error);
+      logout(); 
+    }
+  }, [API_BACKEND, logout]);
+
+  // ========================================================
+  // 🚀 EFFECTS & LIFECYCLES
+  // ========================================================
+
+  // A. INITIAL MOUNT CHECK
   useEffect(() => {
     if (!hasChecked.current) {
       hasChecked.current = true;
@@ -51,54 +96,82 @@ export function AuthProvider({ children }) {
     }
   }, [checkUserStatus]);
 
-
-  // 🔄 3. MULTI-TAB LOGOUT SYNC
+  // B. MULTI-TAB LOGOUT SYNC
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "logout_event") {
         setUser(null);
-        // Only redirect if they are not already on the login page
         if (window.location.pathname !== "/login") {
           window.location.href = "/login";
         }
       }
     };
-
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // C. THE HEARTBEAT (13-Minute Token Refresh)
+  useEffect(() => {
+    if (!user) return; 
 
-  //  4. LOGOUT ACTION
-  const logout = async () => {
-    try {
-      await fetch(`${API_BACKEND}/api/v1/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      console.error("Logout request failed:", err);
-    } finally {
-      // Deterministic Cleanup: Wipe state regardless of server response
-      setUser(null);
-      localStorage.setItem("logout_event", Date.now().toString());
-      window.location.href = "/login";
-    }
-  };
+    const REFRESH_INTERVAL = 13 * 60 * 1000; 
+    const intervalId = setInterval(() => {
+      silentRefresh();
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [user, silentRefresh]);
+
+  // D. IDLE INACTIVITY TRACKER (15-Minute Auto-Logout)
+  useEffect(() => {
+    if (!user) return; 
+
+    // 🛡️ ENTERPRISE FIX 2: Throttled Activity Tracking
+    const updateActivity = () => {
+      const now = Date.now();
+      // Only update the ref if 1000ms (1 second) has passed since the last update
+      if (now - lastActivity.current > 1000) {
+        lastActivity.current = now;
+      }
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(event => 
+      window.addEventListener(event, updateActivity, { passive: true })
+    );
+
+    const MAX_IDLE_TIME = 15 * 60 * 1000; 
+    const idleCheckInterval = setInterval(() => {
+      const timeSinceLastMove = Date.now() - lastActivity.current;
+      
+      if (timeSinceLastMove >= MAX_IDLE_TIME) {
+        console.warn("🔒 Logging out due to 15 minutes of inactivity...");
+        logout(); 
+      }
+    }, 60 * 1000); 
+
+    return () => {
+      activityEvents.forEach(event => window.removeEventListener(event, updateActivity));
+      clearInterval(idleCheckInterval);
+    };
+  }, [user, logout]);
+
+  // 🛡️ ENTERPRISE FIX 3: Memoized Context Value to prevent render waterfalls
+  const contextValue = useMemo(() => ({
+    user,
+    setUser,
+    logout,
+    loading
+  }), [user, logout, loading]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout, loading }}>
-      {/* 
-          🏦 BANK GUARD: 
-          Prevents the app from rendering while we are verifying the user.
-          This stops "flickering" of protected dashboard content.
-      */}
-      {!loading && children}
+    <AuthContext.Provider value={contextValue}>
+      {/* 🛡️ ENTERPRISE FIX 1: Unconditional render allows AppShell to show its own Loader2 */}
+      {children}
     </AuthContext.Provider>
   );
 }
 
-// 🛠️ CUSTOM HOOK
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

@@ -1,3 +1,7 @@
+import os
+import jwt
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientError # 🛡️ Added for safe error catching
 from typing import Callable
 
 from fastapi import Depends, HTTPException, status, Request
@@ -8,6 +12,16 @@ from app.core.config import supabase
 from app.repositories.member_repo import MemberRepository
 from app.models.member import Member
 
+# =======================================================================
+# 🚀 ENTERPRISE JWKS CACHING
+# =======================================================================
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL is missing from environment variables.")
+
+jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+jwks_client = PyJWKClient(jwks_url)
 
 # ----------------------------------------
 # Get Current Authenticated Member
@@ -19,11 +33,11 @@ def get_current_user(
 ) -> Member:
     """
     Bank-Grade Security Handshake:
-    Ensures any failure results in a 401 (Logout) rather than a 500 (Crash).
+    Verifies the Supabase JWT locally using Asymmetric Public Keys (JWKS).
     """
 
     token = request.cookies.get("access_token")
-    # 1. No token? Return 401 so the Frontend/Middleware redirects to /login
+    
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,29 +45,32 @@ def get_current_user(
         )
 
     try:
-        # 2. Validate token with Supabase
-        auth_response = supabase.auth.get_user(token)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
 
-        if not auth_response or not auth_response.user:
+        # 🛡️ ENTERPRISE FIX 1: Removed HS256 to prevent downgrade attacks
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256", "ES256"], 
+            audience="authenticated"
+        )
+
+        user_uuid = payload.get("sub")
+
+        if not user_uuid:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session expired",
+                detail="Invalid token payload",
             )
 
-        user_uuid = auth_response.user.id
-
-        # 3. Fetch Member from DB
         member = MemberRepository.get_by_user_id(db, user_uuid)
 
-        # 4. If the user exists in Supabase but NOT in your DB, 
-        # it's still a 401 (Unauthorized), not a 404 (Not Found).
         if not member:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User profile missing",
             )
 
-        # 5. Check account status
         if hasattr(member, "is_active") and not member.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -62,14 +79,20 @@ def get_current_user(
 
         return member
 
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+        )
+    # 🛡️ ENTERPRISE FIX 3: Catch JWKS Client Errors gracefully
+    except (jwt.InvalidTokenError, PyJWKClientError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token signature",
+        )
     except HTTPException as e:
-        # Re-raise planned Auth errors (401, 403)
         raise e
-
     except Exception as e:
-        # 🔥 CRITICAL CHANGE:
-        # Log the error for you to see in the terminal,
-        # but return 401 to the browser so the app doesn't freeze.
         print(f"DEBUG: Unexpected Auth Error: {str(e)}") 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,21 +104,16 @@ def get_current_user(
 # ----------------------------------------
 
 def require_role(required_role: str) -> Callable:
-    """
-    Role-based access control dependency.
-
-    Usage:
-        dependencies=[Depends(require_role("ADMIN"))]
-    """
-
     def role_checker(current_user: Member = Depends(get_current_user)) -> Member:
-        if current_user.role.upper() != required_role.upper():
+        # 🛡️ ENTERPRISE FIX 2: Safe role extraction
+        user_role = getattr(current_user, "role", "") or ""
+        
+        if user_role.upper() != required_role.upper():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"{required_role} privileges required",
             )
         return current_user
-
     return role_checker
 
 
@@ -106,18 +124,12 @@ def require_role(required_role: str) -> Callable:
 def require_admin(
     current_user: Member = Depends(get_current_user),
 ) -> Member:
-    """
-    Shortcut for ADMIN-only routes.
-    """
-    if current_user.role.upper() != "ADMIN":
+    # 🛡️ ENTERPRISE FIX 2: Safe role extraction
+    user_role = getattr(current_user, "role", "") or ""
+    
+    if user_role.upper() != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",
         )
     return current_user
-
-
-# ----------------------------------------
-# Convenience Member Guard
-# ----------------------------------------
-
