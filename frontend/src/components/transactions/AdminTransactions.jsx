@@ -18,7 +18,7 @@ const TRANSLATIONS = {
     currentBalance: "Current Balance",
     txSection: "2. Process Transaction",
     txType: "Transaction Type",
-    paymentMode: "Payment Mode", // Added
+    paymentMode: "Payment Mode",
     amount: "Amount (₹)",
     note: "Reference Note (Optional)",
     submitBtn: "Process Transaction",
@@ -27,8 +27,6 @@ const TRANSLATIONS = {
     errorMsg: "Failed to process transaction.",
     verifyError: "Account not found.",
     inactiveWarning: "Cannot process transactions for an inactive account.",
-    
-    // Dropdown Options
     deposit: "Deposit (+)",
     share_capital: "Share Capital (+)",
     interest: "Interest (+)",
@@ -49,7 +47,7 @@ const TRANSLATIONS = {
     currentBalance: "सध्याची शिल्लक",
     txSection: "2. व्यवहार प्रक्रिया करा",
     txType: "व्यवहाराचा प्रकार",
-    paymentMode: "पेमेंट मोड", // Added
+    paymentMode: "पेमेंट मोड",
     amount: "रक्कम (₹)",
     note: "संदर्भ नोंद (पर्यायी)",
     submitBtn: "व्यवहार पूर्ण करा",
@@ -58,8 +56,6 @@ const TRANSLATIONS = {
     errorMsg: "व्यवहार पूर्ण करण्यात अक्षम.",
     verifyError: "खाते आढळले नाही.",
     inactiveWarning: "निष्क्रिय खात्यासाठी व्यवहार करता येत नाहीत.",
-    
-    // Dropdown Options
     deposit: "ठेव (+)",
     share_capital: "भाग भांडवल (+)",
     interest: "व्याज (+)",
@@ -73,9 +69,13 @@ const TRANSLATIONS = {
   },
 };
 
+// 🛡️ ENTERPRISE FIX: Updated to support up to 2 decimal places (Paisa)
 const formatINR = (amount) => {
   return new Intl.NumberFormat('en-IN', {
-    style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+    style: 'currency', 
+    currency: 'INR', 
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount || 0);
 };
 
@@ -83,7 +83,6 @@ export default function AdminTransactions() {
   const { language } = useLanguage();
   const t = TRANSLATIONS[language] || TRANSLATIONS.EN;
 
-  // --- STATE MANAGEMENT ---
   const [accountNo, setAccountNo] = useState("");
   const [memberPreview, setMemberPreview] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -91,7 +90,7 @@ export default function AdminTransactions() {
 
   const [formData, setFormData] = useState({
     transaction_type: "deposit",
-    payment_mode: "cash", // Added to match Pydantic schema
+    payment_mode: "cash", 
     amount: "",
     reference_note: ""
   });
@@ -101,9 +100,6 @@ export default function AdminTransactions() {
 
   const API_BACKEND = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  // ==========================================
-  // 1. VERIFY MEMBER LOGIC
-  // ==========================================
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!accountNo.trim()) return;
@@ -131,9 +127,6 @@ export default function AdminTransactions() {
     }
   };
 
-  // ==========================================
-  // 2. SUBMIT TRANSACTION LOGIC
-  // ==========================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!memberPreview || !memberPreview.is_active) return;
@@ -142,7 +135,6 @@ export default function AdminTransactions() {
       setIsSubmitting(true);
       setSubmitStatus({ type: "", message: "" });
 
-      // Clean payload strictly matched to TransactionCreate Pydantic schema
       const payload = {
         account_number: memberPreview.account_number,
         transaction_type: formData.transaction_type,
@@ -165,7 +157,6 @@ export default function AdminTransactions() {
 
       const successData = await response.json();
 
-      // Show success and include the auto-generated receipt number from backend
       setSubmitStatus({ 
         type: "success", 
         message: `${t.successMsg} Receipt: ${successData.receipt_no}` 
@@ -173,8 +164,10 @@ export default function AdminTransactions() {
       
       setFormData({ transaction_type: "deposit", payment_mode: "cash", amount: "", reference_note: "" });
       
-      // Auto-refresh the member preview to show the new balance
-      handleVerify({ preventDefault: () => {} });
+      setMemberPreview(prev => ({
+        ...prev,
+        balance: successData.new_balance
+      }));
 
     } catch (err) {
       setSubmitStatus({ type: "error", message: err.message || t.errorMsg });
@@ -189,7 +182,6 @@ export default function AdminTransactions() {
       {/* LEFT COLUMN: VERIFICATION & PREVIEW */}
       <div className="lg:col-span-5 space-y-6">
         
-        {/* Step 1: Verification Box */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-brand-blue" aria-hidden="true" />
           <h2 className="text-lg font-bold text-brand-navy mb-4 flex items-center gap-2">
@@ -201,7 +193,10 @@ export default function AdminTransactions() {
             <input
               type="text"
               value={accountNo}
-              onChange={(e) => setAccountNo(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setAccountNo(e.target.value.toUpperCase());
+                if (submitStatus.message) setSubmitStatus({ type: "", message: "" });
+              }}
               placeholder={t.accPlaceholder}
               className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all uppercase font-mono"
               required
@@ -223,9 +218,9 @@ export default function AdminTransactions() {
           )}
         </div>
 
-        {/* Member Preview Card */}
         {memberPreview && (
           <div className="bg-linear-to-br from-brand-navy to-blue-950 rounded-2xl shadow-md p-6 text-white animate-in slide-in-from-left-4 duration-300">
+            {/* 🛡️ Comments are safely nestled inside the main returned div block now! */}
             <h3 className="text-sm font-bold text-blue-200 uppercase tracking-wider mb-4 border-b border-blue-800/50 pb-2">
               {t.memberDetails}
             </h3>
@@ -266,7 +261,6 @@ export default function AdminTransactions() {
             {t.txSection}
           </h2>
 
-          {/* Warning for inactive members */}
           {memberPreview && !memberPreview.is_active && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 font-medium text-sm">
               <AlertCircle size={20} aria-hidden="true" className="shrink-0" />
@@ -276,7 +270,6 @@ export default function AdminTransactions() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             
-            {/* Row 1: Type & Payment Mode */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-gray-700">{t.txType}</label>
@@ -318,7 +311,6 @@ export default function AdminTransactions() {
               </div>
             </div>
 
-            {/* Row 2: Amount & Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-gray-700">{t.amount}</label>
@@ -329,7 +321,7 @@ export default function AdminTransactions() {
                   <input
                     type="number"
                     min="1"
-                    step="1"
+                    step="0.01" // 🛡️ ENTERPRISE FIX: Allows decimal precision
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all font-numeric"
@@ -357,7 +349,6 @@ export default function AdminTransactions() {
               </div>
             </div>
 
-            {/* Status Messages */}
             {submitStatus.message && (
               <div className={`p-4 rounded-xl flex items-center gap-3 text-sm font-bold animate-in zoom-in-95 duration-300 ${
                 submitStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
@@ -367,7 +358,6 @@ export default function AdminTransactions() {
               </div>
             )}
 
-            {/* Submit Button */}
             <div className="pt-4 border-t border-gray-100 flex justify-end">
               <button
                 type="submit"

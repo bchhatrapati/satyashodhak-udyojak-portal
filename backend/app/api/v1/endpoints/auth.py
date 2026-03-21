@@ -3,10 +3,13 @@ import os
 from fastapi import APIRouter, Depends, status, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+from gotrue.errors import AuthApiError # 🛡️ Import Supabase's specific error
 
 from app.database.session import get_db
+from app.models.member import Member
+from app.api.deps import get_current_user
 from app.services.auth_service import AuthService
-from app.core.config import supabase
+from app.core.config import supabase, supabase_admin
 
 
 router = APIRouter(
@@ -287,4 +290,87 @@ def refresh_token(request: Request, response: Response):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired. Please login again."
+        )
+
+    
+# ==========================================
+# 4. UPDATE PASSWORD
+# POST /api/v1/auth/update-password
+# ==========================================
+
+class PasswordUpdate(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=6)
+
+@router.post("/update-password")
+def update_password(
+    payload: PasswordUpdate,
+    current_user: Member = Depends(get_current_user) 
+):
+    """
+    Securely updates a member's password using Supabase Auth directly.
+    Includes diagnostic print statements for safe debugging.
+    """
+    print(f"\n--- ATTEMPTING PASSWORD UPDATE FOR: {current_user.account_number} ---")
+    
+    # 1. Safely extract email (Prevents AttributeError if the column is missing in models)
+    user_email = getattr(current_user, 'email', None)
+    
+    if not user_email:
+        print("❌ ERROR: current_user.email is empty or missing from the Member model!")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No email associated with this account in the database."
+        )
+
+    print(f"📧 Using Email: {user_email}")
+
+    # 2. Verify the Old Password via Supabase Auth
+    try:
+        print("🔒 Verifying old password with Supabase...")
+        supabase.auth.sign_in_with_password({
+            "email": user_email, 
+            "password": payload.old_password
+        })
+        print("✅ Old password verified successfully.")
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Supabase Verification Error: {error_msg}")
+        
+        # Safely catch Supabase's specific invalid credentials message across all versions
+        if "Invalid login credentials" in error_msg or "invalid_credentials" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect current password."
+            )
+        
+        # If it's a real server error (like network down), show this:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication service unavailable: {error_msg}"
+        )
+
+    # 3. Prevent reusing the same password
+    if payload.old_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password cannot be the same as your current password."
+        )
+
+    # 4. Update the password securely using the Admin client
+    try:
+        print(f"🔄 Sending new password to Supabase Admin for UUID: {current_user.user_id}")
+        supabase_admin.auth.admin.update_user_by_id(
+            str(current_user.user_id), 
+            {"password": payload.new_password}
+        )
+        print("✅ Password updated successfully!")
+        
+        return {"message": "Password updated successfully"}
+        
+    except Exception as e:
+        print(f"❌ Supabase Admin Update Failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update password in Supabase."
         )
