@@ -143,7 +143,7 @@ export default function AdminTransactions() {
         note: formData.reference_note.trim() || null
       };
 
-      const response = await fetch(`${API_BACKEND}/api/v1/transactions/`, {
+      const response = await fetch(`${API_BACKEND}/api/v1/transactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
