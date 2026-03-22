@@ -8,7 +8,6 @@ import {
   User, Phone, Calendar, ShieldCheck, CreditCard, 
   FileText, Users, Loader2, AlertCircle, Mail, Clock
 } from "lucide-react";
-import Image from "next/image"; // For optimized profile picture rendering
 
 const TRANSLATIONS = {
   EN: {
@@ -18,9 +17,9 @@ const TRANSLATIONS = {
     nomineeInfo: "Nominee Details",
     fullName: "Full Name",
     dob: "Date of Birth",
-    email: "Email Address", // 🛡️ Added
+    email: "Email Address", 
     phone: "Phone Number",
-    installmentDate: "Monthly Installment Day", // 🛡️ Added
+    installmentDate: "Monthly Installment Day", 
     aadhar: "Aadhar Number",
     pan: "PAN Number",
     nomineeName: "Nominee Name",
@@ -37,9 +36,9 @@ const TRANSLATIONS = {
     nomineeInfo: "वारसाचे तपशील (Nominee)",
     fullName: "पूर्ण नाव",
     dob: "जन्म तारीख",
-    email: "ईमेल पत्ता", // 🛡️ Added
+    email: "ईमेल पत्ता", 
     phone: "फोन नंबर",
-    installmentDate: "मासिक हप्ता दिवस", // 🛡️ Added
+    installmentDate: "मासिक हप्ता दिवस", 
     aadhar: "आधार क्रमांक",
     pan: "पॅन क्रमांक",
     nomineeName: "वारसाचे नाव",
@@ -62,6 +61,27 @@ const formatDate = (dateString, lang) => {
   }
 };
 
+// 🛡️ ENTERPRISE FIX 2: Dynamic localization helper for the installment string
+const formatInstallment = (day, lang) => {
+  if (!day) return null;
+  return lang === 'MR' ? `दर महिन्याच्या ${day} तारखेला` : `Day ${day} of every month`;
+};
+
+// 🛡️ ENTERPRISE FIX 1: Extracted component to prevent React re-mounting performance hits
+const DataField = ({ label, value, icon: Icon, isMono = false, fallbackText }) => (
+  <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+    <div className="mt-0.5 text-gray-400">
+      <Icon size={18} aria-hidden="true" />
+    </div>
+    <div>
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      <p className={`text-sm font-semibold text-brand-navy ${isMono ? 'font-mono tracking-wide' : ''}`}>
+        {value || <span className="text-gray-400 italic font-sans">{fallbackText}</span>}
+      </p>
+    </div>
+  </div>
+);
+
 export default function UserProfile() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -74,7 +94,6 @@ export default function UserProfile() {
   useEffect(() => {
     if (!user?.account_number) return;
     
-    // 🛡️ ENTERPRISE FIX 3: Restored AbortController
     const controller = new AbortController();
 
     const fetchProfile = async () => {
@@ -92,14 +111,18 @@ export default function UserProfile() {
         if (!response.ok) throw new Error("Failed to fetch profile");
         
         const data = await response.json();
-        setProfileData(data);
+        
+        if (!controller.signal.aborted) {
+          setProfileData(data);
+          setLoading(false); 
+        }
+        
       } catch (err) {
-        if (err.name !== 'AbortError') {
+        if (!controller.signal.aborted) {
           console.error("Profile fetch error:", err);
           setError(true);
+          setLoading(false); 
         }
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -109,8 +132,8 @@ export default function UserProfile() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20 bg-white border border-gray-100 rounded-2xl shadow-sm">
-        <Loader2 className="h-8 w-8 text-brand-blue animate-spin" aria-hidden="true" />
+      <div className="flex justify-center items-center py-20 bg-white border border-gray-100 rounded-2xl shadow-sm min-h-75">
+        <Loader2 className="h-10 w-10 text-brand-blue animate-spin" aria-hidden="true" />
       </div>
     );
   }
@@ -120,33 +143,19 @@ export default function UserProfile() {
       <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
         <AlertCircle size={24} aria-hidden="true" />
         <p className="font-medium text-sm">{t.errorMsg}</p>
-        <button onClick={() => window.location.reload()} className="ml-auto text-xs font-bold underline hover:text-red-800">
+        <button onClick={() => window.location.reload()} className="ml-auto text-xs font-bold underline hover:text-red-800 transition-colors">
           {t.retry}
         </button>
       </div>
     );
   }
 
-  const DataField = ({ label, value, icon: Icon, isMono = false }) => (
-    <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-      <div className="mt-0.5 text-gray-400">
-        <Icon size={18} aria-hidden="true" />
-      </div>
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-        <p className={`text-sm font-semibold text-brand-navy ${isMono ? 'font-mono tracking-wide' : ''}`}>
-          {value || <span className="text-gray-400 italic font-sans">{t.notProvided}</span>}
-        </p>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       
-      {/* 🛡️ ENTERPRISE FIX 2: Profile Header with Photo */}
+      {/* Profile Header with Photo */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
-        <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg shrink-0 relative">
+        <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full overflow-hidden bg-gray-50 border-4 border-white shadow-lg shrink-0 relative flex items-center justify-center">
           {profileData.photo_url ? (
             <img 
               src={profileData.photo_url} 
@@ -154,9 +163,7 @@ export default function UserProfile() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              <User size={40} />
-            </div>
+            <User size={40} className="text-gray-300" />
           )}
         </div>
         
@@ -183,10 +190,9 @@ export default function UserProfile() {
             {t.personalInfo}
           </h2>
           <div className="space-y-2">
-            {/* 🛡️ ENTERPRISE FIX 1: Strict DB Mappings */}
-            <DataField label={t.fullName} value={profileData.full_name} icon={User} />
-            <DataField label={t.dob} value={formatDate(profileData.date_of_birth, language)} icon={Calendar} />
-            <DataField label={t.joined} value={formatDate(profileData.joining_date, language)} icon={ShieldCheck} />
+            <DataField fallbackText={t.notProvided} label={t.fullName} value={profileData.full_name} icon={User} />
+            <DataField fallbackText={t.notProvided} label={t.dob} value={formatDate(profileData.date_of_birth, language)} icon={Calendar} />
+            <DataField fallbackText={t.notProvided} label={t.joined} value={formatDate(profileData.joining_date, language)} icon={ShieldCheck} />
           </div>
         </div>
 
@@ -197,10 +203,9 @@ export default function UserProfile() {
             {t.contactInfo}
           </h2>
           <div className="space-y-2">
-            {/* 🛡️ ENTERPRISE FIX 1: Strict DB Mappings */}
-            <DataField label={t.phone} value={profileData.phone_number} icon={Phone} isMono />
-            <DataField label={t.email} value={profileData.email} icon={Mail} />
-            <DataField label={t.installmentDate} value={profileData.monthly_installment_date ? `Day ${profileData.monthly_installment_date} of every month` : null} icon={Clock} />
+            <DataField fallbackText={t.notProvided} label={t.phone} value={profileData.phone_number} icon={Phone} isMono />
+            <DataField fallbackText={t.notProvided} label={t.email} value={profileData.email} icon={Mail} />
+            <DataField fallbackText={t.notProvided} label={t.installmentDate} value={formatInstallment(profileData.monthly_installment_date, language)} icon={Clock} />
           </div>
         </div>
 
@@ -211,9 +216,8 @@ export default function UserProfile() {
             {t.kycInfo}
           </h2>
           <div className="space-y-2">
-            {/* 🛡️ ENTERPRISE FIX 1: Corrected schema keys to aadhar_no and pan_no */}
-            <DataField label={t.aadhar} value={profileData.aadhar_no} icon={CreditCard} isMono />
-            <DataField label={t.pan} value={profileData.pan_no} icon={FileText} isMono />
+            <DataField fallbackText={t.notProvided} label={t.aadhar} value={profileData.aadhar_no} icon={CreditCard} isMono />
+            <DataField fallbackText={t.notProvided} label={t.pan} value={profileData.pan_no} icon={FileText} isMono />
           </div>
         </div>
 
@@ -224,8 +228,8 @@ export default function UserProfile() {
             {t.nomineeInfo}
           </h2>
           <div className="space-y-2">
-            <DataField label={t.nomineeName} value={profileData.nominee_name} icon={User} />
-            <DataField label={t.nomineeRelation} value={profileData.nominee_relation} icon={Users} />
+            <DataField fallbackText={t.notProvided} label={t.nomineeName} value={profileData.nominee_name} icon={User} />
+            <DataField fallbackText={t.notProvided} label={t.nomineeRelation} value={profileData.nominee_relation} icon={Users} />
           </div>
         </div>
 
