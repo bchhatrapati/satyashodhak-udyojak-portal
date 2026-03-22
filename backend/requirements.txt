@@ -2,6 +2,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
 APScheduler==3.11.2
+bcrypt==5.0.0
 cachetools==6.2.6
 certifi==2026.1.4
 cffi==2.0.0
@@ -15,6 +16,7 @@ email-validator==2.3.0
 et_xmlfile==2.0.0
 fastapi==0.128.0
 fsspec==2026.1.0
+gotrue==2.12.4
 greenlet==3.3.2
 h11==0.16.0
 h2==4.3.0
