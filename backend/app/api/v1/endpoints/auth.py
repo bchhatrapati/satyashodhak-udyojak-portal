@@ -26,7 +26,7 @@ is_prod = os.getenv("ENVIRONMENT") == "production"
 # LOCAL: Secure=False (usually), SameSite=Lax (for Localhost)
 if is_prod:
     cookie_secure = True
-    cookie_samesite = "none" # 👈 Required for Vercel/Railway cross-domain
+    cookie_samesite = "lax"  # Vercel Proxy allows us to use strict same-site rules!
 else:
     cookie_secure = False    # Localhost usually doesn't have SSL/HTTPS
     cookie_samesite = "lax"  # Standard for local development
