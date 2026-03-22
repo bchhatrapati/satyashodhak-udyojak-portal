@@ -22,7 +22,7 @@ router = APIRouter(
 # 🚀 1. CREATE TRANSACTION (ADMIN ONLY)
 # POST /api/v1/transactions/
 # ==========================================
-@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     data: TransactionCreate,
     db: Session = Depends(get_db),
@@ -115,7 +115,7 @@ def create_transaction(
 # 🌐 2. GET GLOBAL LEDGER (ADMIN ONLY)
 # GET /api/v1/transactions/
 # ==========================================
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 def get_global_ledger(
     search: Optional[str] = Query(None, description="Search by account number or receipt"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
