@@ -1,9 +1,28 @@
+# --- YOUR CUSTOM IGNORES ---
 node_modules/
 .next/
-.venv/
-venv/
-__pycache__/
 .env
 .env.local
 .vscode/
 *.xlsx
+
+# --- PYTHON VIRTUAL ENVIRONMENTS ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- PYTHON COMPILED FILES ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+*.so
+.Python
+
+# --- OS & GIT HIDDEN FILES ---
+.git
+.gitignore
+.DS_Store
+Thumbs.db
