@@ -5,7 +5,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { 
+import {  
   ArrowLeft, User, Phone, Mail, Users, Calendar,
   Edit3, CheckCircle2, XCircle, Loader2, Wallet, Shield,
   AlertCircle, History, Activity
@@ -103,6 +103,9 @@ export default function MemberProfilePage({ params }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [transactions, setTransactions] = useState([]);
+  const [txLoading, setTxLoading] = useState(true);
+
   const [formData, setFormData] = useState({});
   const [originalData, setOriginalData] = useState({});
   const [errors, setErrors] = useState({});
@@ -112,7 +115,19 @@ export default function MemberProfilePage({ params }) {
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
   useEffect(() => {
-    fetchMemberDetails();
+    // We wrap them in Promise.all to fetch them simultaneously for speed
+    const loadAllData = async () => {
+      setLoading(true);
+      setTxLoading(true);
+      await Promise.all([
+        fetchMemberDetails(),
+        fetchTransactionHistory()
+      ]);
+      setLoading(false);
+      setTxLoading(false);
+    };
+    
+    loadAllData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account_number]);
 
@@ -144,6 +159,22 @@ export default function MemberProfilePage({ params }) {
       showToast("error", "Failed to load member data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTransactionHistory = async () => {
+    try {
+      const res = await fetch(`${API_BACKEND}/api/v1/transactions/${account_number}?limit=10`, {
+        method: "GET",
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions(data);
+      }
+    } catch (err) {
+      console.error("Failed to load transaction history:", err);
     }
   };
 
@@ -493,23 +524,68 @@ export default function MemberProfilePage({ params }) {
         </div>
       </div>
 
+      {/* 🟢 RECENT TRANSACTIONS LEDGER */}
       <div className="mt-8 pt-8 border-t border-gray-200">
-        <h2 className="text-xl font-bold text-brand-navy mb-6 flex items-center gap-2">
-          <History size={22} className="text-brand-blue" /> {t.recentActivity}
-        </h2>
-
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 text-center flex flex-col items-center justify-center">
-          <div className="bg-gray-50 p-4 rounded-full mb-3">
-            <History size={28} className="text-gray-400" />
-          </div>
-          <p className="text-gray-600 font-semibold">{t.ledgerPending}</p>
-          <p className="text-sm text-gray-400 mt-1 max-w-sm">{t.ledgerDesc}</p>
-          <button className="mt-5 px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-            {t.viewLedger}
+        <div className="flex justify-between items-end mb-6">
+          <h2 className="text-xl font-bold text-brand-navy flex items-center gap-2">
+            <History size={22} className="text-brand-blue" /> {t.recentActivity}
+          </h2>
+          <button 
+            onClick={() => router.push(`/transactions?account=${account_number}`)}
+            className="text-sm font-bold text-brand-blue hover:text-blue-800 transition-colors"
+          >
+            {t.viewLedger} &rarr;
           </button>
         </div>
+        
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          {txLoading ? (
+             <div className="p-8 flex justify-center items-center">
+               <Loader2 className="h-6 w-6 animate-spin text-brand-blue" />
+             </div>
+          ) : transactions.length === 0 ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center text-gray-500">
+              <Activity size={24} className="mb-2 text-gray-300" />
+              <p className="font-semibold">No transactions found</p>
+              <p className="text-xs mt-1">This account has no recorded financial activity.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-gray-50 text-gray-500 font-bold uppercase tracking-wider text-xs border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Receipt No</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {transactions.map((tx) => {
+                    const isCredit = ['deposit', 'share_capital', 'interest'].includes(tx.transaction_type.toLowerCase());
+                    return (
+                      <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 text-gray-600 font-medium">
+                          {new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-xs text-gray-500">{tx.receipt_no}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${isCredit ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                            {tx.transaction_type.replace('_', ' ').toUpperCase()}
+                          </span>
+                        </td>
+                        <td className={`px-6 py-4 font-bold font-numeric ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCredit ? '+' : '-'}{formatINR(tx.amount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-
     </div>
   );
 }
