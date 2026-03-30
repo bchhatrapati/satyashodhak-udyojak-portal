@@ -58,6 +58,7 @@ class MemberCreate(MemberBase):
 # All fields are Optional. Used when editing a profile.
 class MemberUpdate(BaseModel):
     full_name: Optional[str] = None
+    phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
     nominee_name: Optional[str] = None

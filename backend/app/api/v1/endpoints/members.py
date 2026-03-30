@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.member import Member
-from app.schemas.member import MemberCreate, MemberResponse, MemberStatusUpdate
+from app.schemas.member import MemberCreate, MemberResponse, MemberStatusUpdate, MemberUpdate
 from app.services.member_service import MemberService
 from app.repositories.member_repo import MemberRepository
 from app.api.deps import get_current_user, require_admin
@@ -262,3 +262,48 @@ def upload_member_documents(
             status_code=500,
             detail=f"Backend Storage Error: {str(e)}"
         )
+
+# -------------------------------------------------------------------------
+# 6. Update Member Profile (ADMIN ONLY)
+# -------------------------------------------------------------------------
+@router.patch(
+    "/{account_number}",
+    response_model=MemberResponse,
+)
+def update_member_profile(
+    account_number: str,
+    payload: MemberUpdate,
+    db: Session = Depends(get_db),
+    current_user: Member = Depends(require_admin), # 🛡️ Only admins can edit
+):
+    """
+    Update member profile details including nominee and installment info.
+    """
+    # 🛡️ ENTERPRISE FIX 1: Defensive uppercase formatting
+    account_number = account_number.strip().upper()
+    
+    # 1. Fetch the member from the database
+    member = MemberRepository.get_by_account_number(db, account_number)
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found",
+        )
+        
+    # 🛡️ ENTERPRISE FIX 2: Use model_dump() for Pydantic V2 compatibility
+    update_data = payload.model_dump(exclude_unset=True)
+    
+    # 🛡️ Optimization: If they sent an empty JSON {}, just return the member without hitting the DB
+    if not update_data:
+        return member
+        
+    # 2. Update only the fields that were actually provided in the payload
+    for key, value in update_data.items():
+        setattr(member, key, value)
+        
+    # 3. Save to database
+    db.add(member) # Safely tracks the updated object
+    db.commit()
+    db.refresh(member)
+    
+    return member
