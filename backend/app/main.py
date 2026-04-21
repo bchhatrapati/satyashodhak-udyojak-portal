@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import auth, members, admin, transactions
 from app.tasks.backup_system import generate_daily_backup, send_backup_email
+from contextlib import asynccontextmanager
 
 load_dotenv()
 
