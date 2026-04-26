@@ -26,7 +26,6 @@ def generate_daily_backup() -> Optional[str]:
     Generates Excel backup from direct PostgreSQL connection.
     Returns file path if successful.
     """
-
     try:
         date_str = datetime.now(IST).strftime("%d-%m-%Y")
         file_name = f"Satyashodhak_Backup_{date_str}.xlsx"
@@ -39,10 +38,17 @@ def generate_daily_backup() -> Optional[str]:
             df_members = pd.read_sql(text("SELECT * FROM members"), conn)
             df_transactions = pd.read_sql(text("SELECT * FROM transactions"), conn)
 
+        # 🛡️ ENTERPRISE FIX 1: Strip timezones from datetime columns so Excel doesn't crash
+        for df in [df_members, df_transactions]:
+            tz_columns = df.select_dtypes(include=['datetimetz']).columns
+            for col in tz_columns:
+                df[col] = df[col].dt.tz_localize(None)
+
         with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
             df_members.to_excel(writer, sheet_name="Members", index=False)
             df_transactions.to_excel(writer, sheet_name="Transactions", index=False)
-
+        
+        print(f"✅ Backup generated at {file_path}")
         return file_path
 
     except Exception as e:
@@ -58,6 +64,10 @@ def send_backup_email(file_path: str) -> None:
     """
     Sends backup Excel file to configured admin emails.
     """
+    # 🛡️ ENTERPRISE FIX 2: Guard clause against NoneType errors
+    if not file_path:
+        print("❌ No valid file path provided. Email skipped.")
+        return
 
     recipient_emails = [
         email.strip()
@@ -104,6 +114,23 @@ def send_backup_email(file_path: str) -> None:
         print(f"❌ Failed to send email: {e}")
 
     finally:
-        # Always delete file after attempt
-        if os.path.exists(file_path):
+        # 🛡️ ENTERPRISE FIX 3: Safe deletion that won't crash if file_path is None
+        if file_path and os.path.exists(file_path):
             os.remove(file_path)
+
+
+# -------------------------------------------------------------------------
+# Execution Block for Manual Testing
+# -------------------------------------------------------------------------
+# 🛡️ ENTERPRISE FIX 4: Replaced the raw function call with a proper execution block
+if __name__ == "__main__":
+    print("⏳ Starting Satyashodhak Daily Backup Process...")
+    
+    backup_path = generate_daily_backup()
+    
+    if backup_path:
+        print("📧 Attempting to send email...")
+        send_backup_email(backup_path)
+        print("🎉 Backup process finished!")
+    else:
+        print("❌ Backup process failed before sending email. Process aborted.")

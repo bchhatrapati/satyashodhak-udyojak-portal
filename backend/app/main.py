@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import auth, members, admin, transactions
 from app.tasks.backup_system import generate_daily_backup, send_backup_email
 from contextlib import asynccontextmanager
+import asyncio  # For background tasks
 
 load_dotenv()
 
@@ -52,7 +53,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Satyashodhak Udyojak Portal",
     description="Backend API for managing cooperative society members and finances.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # 🌐 CORS Configuration (Crucial for your Frontend later)
